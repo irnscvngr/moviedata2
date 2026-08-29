@@ -1,0 +1,12 @@
+pyproject.toml
+src/moviedata/__init__.py
+src/moviedata.egg-info/PKG-INFO
+src/moviedata.egg-info/SOURCES.txt
+src/moviedata.egg-info/dependency_links.txt
+src/moviedata.egg-info/top_level.txt
+src/moviedata/core/__init__.py
+src/moviedata/core/tools.py
+src/moviedata/sources/__init__.py
+src/moviedata/sources/letterboxd.py
+tests/test_letterboxd.py
+tests/test_tools.py

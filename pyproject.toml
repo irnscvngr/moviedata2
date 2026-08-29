@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moviedata"
+version = "0.1.0"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src","."]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src",
+  "."
+]

@@ -1,0 +1,26 @@
+{
+    "br_collection":{
+        "filepath":"lists/br-collection.csv",
+        "skiprows":4,
+        "usecols":["Name", "Year", "URL"],
+        "rename_cols":{"URL":"Letterboxd URI"}
+    },
+    "ratings":{
+        "filepath":"ratings.csv",
+        "skiprows":0,
+        "usecols":[],
+        "rename_cols":{}
+    },
+    "watched":{
+        "filepath":"watched.csv",
+        "skiprows":0,
+        "usecols":[],
+        "rename_cols":{}
+    },
+    "watchlist":{
+        "filepath":"watchlist.csv",
+        "skiprows":0,
+        "usecols":[],
+        "rename_cols":{}
+    }
+}
