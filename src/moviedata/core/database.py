@@ -10,7 +10,7 @@ import pytz
 import pandas as pd
 
 import sqlalchemy
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects.postgresql import insert
 
 class pg_connect:
@@ -40,7 +40,8 @@ class pg_connect:
 
     def sql_query(self, query:str):
         """
-        Sends custom SQL-query to database and returns pandas DF
+        Sends custom SQL-query to database and returns pandas DF.
+        Read only!
         """
         if self.engine is None:
             self.create_engine() 
@@ -54,6 +55,7 @@ class pg_connect:
         table_name: str,
         schema_name: str,
         add_timestamp=True,
+        overwrite=False,
         primary_keys: list | None = None,  # Optional override
         ):
         """
@@ -125,15 +127,38 @@ class pg_connect:
                 print(f"[WARNING] Column '{col}' is either type tuple, dict or list. Serializing to JSON...")
                 df_write[col] = df_write[col].apply(lambda x: json.dumps(x) if isinstance(x, check_types) else x)
 
-        # 4. Write to PostgreSQL
-        df_write.to_sql(
-            name=table_name,
-            schema=schema_name,
-            con=self.engine,
-            if_exists="append",
-            index=False,
-            method=_build_on_conflict_do_nothing(
-                pk_columns=primary_keys,
-                target_table=table_name
+        # ..............................................................................
+        if overwrite == False:
+            # APPEND TO TABLE
+            print("[INFO] APPEND dataframe to postgres table...")
+            df_write.to_sql(
+                name=table_name,
+                schema=schema_name,
+                con=self.engine,
+                if_exists="append",
+                index=False,
+                method=_build_on_conflict_do_nothing(
+                    pk_columns=primary_keys,
+                    target_table=table_name
+                )
             )
-        )
+        else:
+            # OVERWRITE TABLE
+
+            print("[INFO] OVERWRITING postgres table with dataframe...")
+            # Clear existing data while preserving table structure
+            with self.engine.begin() as conn:
+                conn.execute(text(f'TRUNCATE TABLE "{schema_name}"."{table_name}" RESTART IDENTITY;'))
+
+            # Append new data back into the empty table
+            df_write.to_sql(
+                name=table_name,
+                schema=schema_name,
+                con=self.engine,
+                if_exists="append",
+                index=False,
+                method=_build_on_conflict_do_nothing(
+                    pk_columns=primary_keys,
+                    target_table=table_name
+                )
+            )
