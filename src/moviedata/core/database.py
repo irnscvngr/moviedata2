@@ -1,6 +1,7 @@
 """
 Module to communicate with database
 """
+import json
 from config.settings import settings
 
 from datetime import datetime
@@ -24,14 +25,44 @@ class pg_connect:
         """
         self.engine = create_engine(settings.database_url)
 
+    def read_df_from_postgres(self, table_name: str, schema_name: str, limit=500):
+        """
+        """
+        query = f"SELECT * FROM {schema_name}.{table_name}"
+        if limit is not None:
+            query = f"{query} LIMIT {limit}"
+
+        if self.engine is None:
+           self.create_engine() 
+
+        df = pd.read_sql(query, con=self.engine)
+        return df
+
+    def sql_query(self, query:str):
+        """
+        Sends custom SQL-query to database and returns pandas DF
+        """
+        if self.engine is None:
+            self.create_engine() 
+
+        df = pd.read_sql(query, con=self.engine)
+        return df
+
     def write_df_to_postgres(
         self,
         df: pd.DataFrame,
         table_name: str,
         schema_name: str,
+        add_timestamp=True,
         primary_keys: list | None = None,  # Optional override
         ):
-        """Writes pandas dataframe to postgres DB, auto-detecting primary keys if omitted."""
+        """
+        Writes pandas dataframe to postgres DB, auto-detecting primary keys if omitted.
+        """
+
+        # Create engine if not available
+        if self.engine is None:
+            self.create_engine()
 
         # 1. Automatically fetch PKs from DB schema if not provided
         if not primary_keys:
@@ -79,8 +110,20 @@ class pg_connect:
         if 'date' in df_write.columns:
             df_write['date'] = pd.to_datetime(df_write['date'])
 
-        tz = pytz.timezone('Europe/Berlin')
-        df_write['load_timestamp'] = datetime.now(tz)
+        # Add load timestamp if requested
+        if add_timestamp:
+            tz = pytz.timezone('Europe/Berlin')
+            df_write['load_timestamp'] = datetime.now(tz)
+        
+        # Convert any dict columns to JSON-formatted strings
+        # to prevent failure upon writing to database
+        # (psycopg2 uses raw python types when sending data to DB server, which fails
+        # for Python dictionaries. Serialize as JSON first, then it works!)
+        check_types = (dict, list, tuple)
+        for col in df_write.columns:
+            if df_write[col].apply(lambda x: isinstance(x, check_types)).any():
+                print(f"[WARNING] Column '{col}' is either type tuple, dict or list. Serializing to JSON...")
+                df_write[col] = df_write[col].apply(lambda x: json.dumps(x) if isinstance(x, check_types) else x)
 
         # 4. Write to PostgreSQL
         df_write.to_sql(
