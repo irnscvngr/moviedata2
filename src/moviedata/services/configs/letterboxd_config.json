@@ -3,24 +3,28 @@
         "filepath":"lists/br-collection.csv",
         "skiprows":4,
         "usecols":["Name", "Year", "URL"],
-        "rename_cols":{"URL":"Letterboxd URI"}
+        "rename_cols":{"URL":"Letterboxd URI"},
+        "overwrite":false
     },
     "ratings":{
         "filepath":"ratings.csv",
         "skiprows":0,
         "usecols":[],
-        "rename_cols":{}
+        "rename_cols":{},
+        "overwrite":false
     },
     "watched":{
         "filepath":"watched.csv",
         "skiprows":0,
         "usecols":[],
-        "rename_cols":{}
+        "rename_cols":{},
+        "overwrite":false
     },
     "watchlist":{
         "filepath":"watchlist.csv",
         "skiprows":0,
         "usecols":[],
-        "rename_cols":{}
+        "rename_cols":{},
+        "overwrite":true
     }
 }

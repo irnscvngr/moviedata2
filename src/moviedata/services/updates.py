@@ -68,10 +68,12 @@ class updater:
 
             # Write data to database
             try:
+                print(f"[INFO] Overwrite table: {config['overwrite']}")
                 self.pg_con.write_df_to_postgres(
                     df,
                     table_name=table,
-                    schema_name="letterboxd"
+                    schema_name="letterboxd",
+                    overwrite=config['overwrite']
                 )
             except:
                 print(f"[WARNING] Failed to write table {table} to database! Skipping table...")
