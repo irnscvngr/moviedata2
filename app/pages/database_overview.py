@@ -15,6 +15,9 @@ st.button(
     label="Update Rottentomatoes Data",
     on_click=db_update.update_rottentomatoes)
 
+st.button(
+    label="Update Medimops Data",
+    on_click=db_update.update_medimops)
 
 # ==========================================================================================
 pg = pg_connect()
