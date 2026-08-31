@@ -22,7 +22,32 @@ pg = pg_connect()
 
 # ==========================================================================================
 "## Movie Selector"
-st.divider()
+st.markdown(
+    "<hr style='margin: 4px 0; border: none; border-top: 1px solid #e6e6e6;' />", 
+    unsafe_allow_html=True
+)
+
+# Get available genres
+genres = (
+    pg
+    .sql_query("""SELECT DISTINCT genre FROM letterboxd.movie_genres""")
+    ['genre']
+    .sort_values()
+    .tolist()
+)
+
+# Genre-Filter toggle
+use_genre_filter = st.toggle("Filter Genres")
+
+if use_genre_filter:
+    genre_select = st.multiselect(
+        "genre_select",
+        genres,
+        default=genres,
+        label_visibility='collapsed'
+    )
+else:
+    genre_select = genres
 
 col1, col2 = st.columns(2)
 
@@ -79,33 +104,43 @@ df = pg.sql_query(
 
 f"*Rotten tomatoes coverage of watchlist: {round(100*df['coverage_ratio'])}%*"
 
+# Convert selected genre-list to string for use in SQL
+formatted_genres = f"({', '.join(repr(g) for g in genre_select)})" if genre_select else "(NULL)"
+# Get movies filtered by user-parameters
 df = (
     pg
     .sql_query(f"""
     SELECT
-        name,
-        year,
-        duration,
-        (critics_score + audience_score)/2 AS meta_score,
-        poster,
-        description,
-        critics_score,
-        audience_score
-    FROM public.watchlist_with_scores
-    WHERE critics_score >= {select_critics_score[0]}
-    AND critics_score <= {select_critics_score[1]}
+        w.name,
+        w.year,
+        w.duration,
+        (w.critics_score + w.audience_score)/2 AS meta_score,
+        w.poster,
+        w.description,
+        w.critics_score,
+        w.audience_score
+    FROM public.watchlist_with_scores w
+    WHERE w.critics_score >= {select_critics_score[0]}
+    AND w.critics_score <= {select_critics_score[1]}
     -- audience score
-    AND audience_score >= {select_audience_score[0]}
-    AND audience_score <= {select_audience_score[1]}
+    AND w.audience_score >= {select_audience_score[0]}
+    AND w.audience_score <= {select_audience_score[1]}
     -- duration
-    AND duration >= {select_duration[0]}
-    AND duration <= {select_duration[1]}
+    AND w.duration >= {select_duration[0]}
+    AND w.duration <= {select_duration[1]}
     -- year
-    AND year >= {select_year[0]}
-    AND year <= {select_year[1]}
+    AND w.year >= {select_year[0]}
+    AND w.year <= {select_year[1]}
     -- drop nulls
-    AND critics_score IS NOT NULL
-    AND audience_score IS NOT NULL
+    AND w.critics_score IS NOT NULL
+    AND w.audience_score IS NOT NULL
+    -- genre filter
+    AND EXISTS (
+        SELECT 1 
+        FROM letterboxd.movie_genres g
+        WHERE g.letterboxd_uri = w.letterboxd_uri
+        AND g.genre->>0 IN {formatted_genres}
+    )
     --
     ORDER BY meta_score DESC
     LIMIT 50"""
@@ -114,7 +149,8 @@ df = (
 
 # Display images:
 display_centered_images(df.iloc[0:3,:], max_images=3, descr_length=200)
-display_centered_images(df.iloc[3:6,:], max_images=3, descr_length=200)
+if df.shape[0] > 3:
+    display_centered_images(df.iloc[3:6,:], max_images=3, descr_length=200)
 
 # Display dataframe
 st.dataframe(
