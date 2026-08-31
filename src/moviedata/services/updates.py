@@ -8,9 +8,10 @@ import json
 import pandas as pd
 
 from moviedata.core import tools
-from moviedata.sources.letterboxd import letterboxd
 from moviedata.core.database import pg_connect
+from moviedata.sources.letterboxd import letterboxd
 from moviedata.sources.rottentomatoes import rottentomatoes
+from moviedata.sources.medimops import medimops
 
 class updater:
     """
@@ -81,7 +82,7 @@ class updater:
 
         print("\n[INFO] Letterboxd update pipeline finished!\n")
 
-    
+
     def update_rottentomatoes(self):
         """
         """
@@ -101,3 +102,24 @@ class updater:
         rt.get_movie_data(df_scrape=df, preprocess_title=True)
 
         print("[INFO] Rottentomatoes update pipeline finished!\n")
+
+
+    def update_medimops(self):
+        """
+        """
+        print("\n==================================================")
+        print("[INFO] Medimops update pipeline started!")
+
+        # 1 - Load view "shop_candidates" from public schema
+        df = self.pg_con.read_df_from_postgres(
+            table_name="shop_candidates",
+            schema_name="public",
+            limit=None
+        )
+
+        # 2 - Scrape respective movies and append new data to
+        # table "rt_all_movies_metadata"
+        mm = medimops()
+        mm.get_blu_ray_data(df_scrape=df)
+
+        print("[INFO] Medimops update pipeline finished!\n")
