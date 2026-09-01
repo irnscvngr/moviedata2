@@ -1,0 +1,19 @@
+﻿Source Type;Target Type;Source;Target;Job;Comment
+Web Scrape;pg_table;web.letterboxd;letterboxd.br_collection;;
+Web Scrape;pg_table;web.letterboxd;letterboxd.lb_all_movies_metadata;;
+Web Scrape;pg_table;web.letterboxd;letterboxd.lb_recommended_movies;;
+Web Scrape;pg_table;web.letterboxd;letterboxd.ratings;;
+Web Scrape;pg_table;web.letterboxd;letterboxd.watched;;
+Web Scrape;pg_table;web.letterboxd;letterboxd.watchlist;;
+;pg_view;;letterboxd.movie_genres;;
+;pg_view;;letterboxd.movies_for_metadata_scraping;;
+;pg_view;;letterboxd.recommended_movies;;
+;pg_view;;letterboxd.recommended_movies_for_metadata_scraping;;Compares recommended movies with existing movies in DB to add new movies.
+;pg_view;;letterboxd.shop_candidates;;
+Web Scrape;pg_table;;medimops.shop_candidates;;deprecated
+Web Scrape;pg_table;;medimops.product_lines;;
+;pg_view;;medimops.movie_price_evaluation;;
+;pg_view;;medimops.movie_price_lines;;
+;pg_view;;medimops.movie_price_lines2;;deprecated
+;pg_table;;letterboxd.watched;;???
+;pg_table;;moviedata.watched;;???
