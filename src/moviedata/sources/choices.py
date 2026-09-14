@@ -6,6 +6,7 @@ import re
 import json
 import time
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import random
 import pandas as pd
 import bs4
@@ -102,6 +103,8 @@ class choices(scraper):
                 year = match.group()
             # Get current year
             cur_year = datetime.now().year
+            # Set timezone info
+            tz = ZoneInfo("Europe/Berlin")
             # ...................................
             # Get movie times
             # Get all table rows
@@ -169,9 +172,12 @@ class choices(scraper):
                     # Extract date from string
                     match = re.search(r"\b[0-9]{2}.[0-9]{2}\b", td_list[0])
                     if match:
+                        # Create string timestamp
                         timestamp = f"{match.group()}.{cur_year} {time}"
-                        # timestamp_dt = datetime.fromtimestamp(timestamp)
-                        timestamp_dt = datetime.strptime(timestamp, "%d.%m.%Y %H:%M")
+                        # Create datetime object
+                        timestamp_dt_utc = datetime.strptime(timestamp, "%d.%m.%Y %H:%M")
+                        # Make it a localized timestamp
+                        timestamp_dt = timestamp_dt_utc.replace(tzinfo=tz)
 
                     # .................................................................
                     # Store all extracted information in a dictionary
@@ -225,9 +231,14 @@ class choices(scraper):
 
             # Get cinema names from config
             # Use values, not keys, because keys are reference names and values are taken from choices.de
-            cinemas_config = set(CINEMAS_CONFIG[city].values())
+            cinemas_city_config = CINEMAS_CONFIG[city]
+            cinemas_config = set(cinemas_city_config.values())
             # Get cinema names from choices
             cinemas_choices = set(cinemas.keys())
+
+            # Create a value->key assignment
+            # to later have database naming independent of website-naming
+            cinemas_city_config_flipped = {val:key for key,val in cinemas_city_config.items()}
 
             # Initialize results-list
             res = []
@@ -235,7 +246,8 @@ class choices(scraper):
             for cinema in cinemas_choices.intersection(cinemas_config):
                 res.append({
                     'city':city,
-                    'cinema':cinema,
+                    'cinema_choices':cinema,
+                    'cinema_config':cinemas_city_config_flipped[cinema],
                     # Subdict contains href-link as value to cinema-key
                     'link':cinemas[cinema]
                 })
@@ -262,23 +274,42 @@ class choices(scraper):
         print(f"[INFO] Selected {len(cinemas_scrape)} cinemas for scraping!")
 
         # -----------------------------------------------------------------------------------------------
+        # CONNECT TO DATABASE
+        pg = pg_connect()
+
+        # -----------------------------------------------------------------------------------------------
         # GO THROUGH CINEMAS AND GET MOVIES
         for i, cinema in enumerate(cinemas_scrape):
-            print(f"[INFO] ({i+1}/{len(cinemas_scrape)}) Processing {cinema}... {cinema['link']}")
+            # Build request URL
+            request_url = f"{self.base_url}{cinema['link']}"
+
+            print(f"\n[INFO] ({i+1}/{len(cinemas_scrape)}) Processing {cinema['cinema_choices']}... {request_url}")
 
             # Get soup for current cinema
-            soup = self.get_soup(request_url=cinema['link'])
+            soup = self.get_soup(request_url=request_url)
 
             # Try and get dataframe of all movie showings of current cinema
             res = self._parse_cinema_page(soup)
 
             # Skip if no showings could be obtained
             if res is None:
-                print(f"[WARNING] Failed to get movie showings for {cinema}! Continuing...")
+                print(f"[WARNING] Failed to get movie showings for {cinema['cinema_choices']}! Continuing...")
                 continue
 
-            print(res)
+            # Add basic info to dataframe
+            res['city'] = cinema['city']
+            res['cinema'] = cinema['cinema_config']
 
+            # Write results to database
+            pg.write_df_to_postgres(
+                df=res,
+                table_name="movie_showings",
+                schema_name="choices",
+                add_timestamp=True
+            )
+            print("[INFO] Successfully stored results to database!")
 
             # Wait a little bit. Do it randomly be less suspicious
             time.sleep(random.random()*1.0)
+
+        print("[INFO] Choices.de Movie processing completed successfully!\n")
