@@ -7,60 +7,85 @@ from moviedata.core.database import pg_connect
 class medimops_price_analyzer:
     """
     """
-    def __init__(self, movie_titles: list):
+    def __init__(self, movie_titles: list=None):
         self.movie_titles = movie_titles
         self.pg = None
         self.df_movie_prices = None
 
-    def get_movie_prices(self, movie_select: list):
+    def analyze_price_lines(self):
         """
-        Get price lines dataframe for selected movies
+        Get product lines from up to 8 weeks back and analyze prices
         """
-        self.movie_select = movie_select
-
-        # Escape single quotes in strings to avoid syntax errors/SQL injection
-        safe_list = [s.replace("'", "''") for s in movie_select]
-        # Format as comma-separated single-quoted values
-        formatted_items = ", ".join(f"'{item}'" for item in safe_list)
-
         if self.pg is None:
             pg = pg_connect()
 
-        df_movie_prices = pg.sql_query(f"""
+        # ------------------------------------------------------------
+        # GET ALL PRICES FROM UP TO 8 WEEKS BACK
+
+        df_recent_prices = pg.sql_query(f"""
             SELECT *
-            FROM medimops.movie_price_lines
-            WHERE letterboxd_name IN ({formatted_items});
+            FROM medimops.product_lines
+            WHERE load_timestamp >= NOW() - INTERVAL '8 weeks';
             """
         )
+        self.df_recent_prices = df_recent_prices
+        # ------------------------------------------------------------
+        # GET AVERAGE PRICES OF FULL DF PER PRODUCT (=8 weeks)
 
-        self.df_movie_prices = df_movie_prices
-        return df_movie_prices
+        df_recent_prices_avg = (
+            df_recent_prices
+            .groupby('product_link')
+            .agg(
+                row_count=('product_link', 'count'),
+                product_title=('product_title', 'first'),
+                price_8w_avg=('product_price_desktop', 'mean'),
+                letterboxd_name=('letterboxd_name', 'first'),
+                letterboxd_uri=('letterboxd_uri','first')
+                )
+        )
+        # ------------------------------------------------------------
+        # GET LATEST PRICES OF FULL DF PER PRODUCT
 
-    def get_cheap_movies(self, cnt=5):
-        """
-        Gets price data of movies whose price is below 4 week average
-        """
-        if self.pg is None:
-            pg = pg_connect()
+        df_recent_prices_latest = (
+            df_recent_prices
+            .sort_values(['product_link','load_timestamp'],ascending=False)
+            .groupby('product_link')
+            .agg({
+                'product_title':'first',
+                'product_price_desktop':'first'
+            })
+            .rename(columns={'product_price_desktop':'price_latest'})
+        )
+        # ------------------------------------------------------------
+        # JOIN DFs AND DIVIDE LATEST PRICE BY 8 WEEK AVERAGE
 
-        df_movies_cheap = pg.sql_query(f"""
-        SELECT *
-        FROM medimops.movie_price_evaluation
-        LIMIT {cnt};
-        """
+        df_price_compare = (
+            df_recent_prices_avg
+            .join(df_recent_prices_latest.drop(columns=['product_title']))
         )
 
-        self.df_movies_cheap = df_movies_cheap
-        return df_movies_cheap
+        df_price_compare['price_ratio'] = df_price_compare['price_latest']/df_price_compare['price_8w_avg']
 
-    def plot_price_lines(self):
+        self.df_price_compare = df_price_compare
+
+
+        return df_price_compare
+
+
+    def plot_price_lines(self, df, x='date', y='price_desktop_min', color='letterboxd_uri', hover_data='letterboxd_name'):
         fig = px.line(
-            data_frame=self.df_movie_prices,
-            x="date",
-            y="price_desktop_min",
-            color="letterboxd_name",
+            data_frame=df,
+            x=x,
+            y=y,
+            color=color,
+            hover_data=hover_data,
             markers=True
             )
+
+        # Build a lookup dictionary to rename legend items
+        label_map = dict(zip(df[color].astype(str), df[hover_data]))
+
+        fig.for_each_trace(lambda trace: trace.update(name=label_map.get(trace.name, trace.name)))
 
         fig.update_layout(
             legend=dict(
@@ -70,6 +95,14 @@ class medimops_price_analyzer:
                 xanchor="center",  # Center horizontally
                 x=0.5,  # Place at 50% width
                 title_text=None
+            ),
+            xaxis_title=None,
+            yaxis_title=None,
+            margin=dict(
+                b=0,  # Reduce bottom margin (default is around 80px)
+                t=20,  # Top margin (optional)
+                l=20,  # Left margin (optional)
+                r=20   # Right margin (optional)
             )
         )
         return fig
