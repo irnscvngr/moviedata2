@@ -1,0 +1,34 @@
+{
+    "Köln":{
+        "Cinedom":"Cinedom",
+        "Cinenova":"Cinenova",
+        "Cineplex":"Cineplex Filmpalast",
+        "Lichtspiele Kalk":"Lichtspiele Kalk",
+        "Metropolis":"Metropolis",
+        "Odeon":"Odeon",
+        "Off Broadway":"OFF Broadway",
+        "Rheinauhafen":"Open Air Naturstrom im Rheinauhafen",
+        "Residenz":"Residenz",
+        "Rex":"Rex am Ring"
+    },
+    "Bergisch Gladbach":{
+        "Cineplex":"Cineplex Bensberg"
+    },
+    "Bonn":{
+        "Kinopolis":"Kinopolis",
+        "Rex":"Rex",
+        "Woki":"Woki"
+    },
+    "Hürth":{
+        "UCI":"UCI Hürth Park"
+    },
+    "Leverkusen":{
+        "Kinopolis":"Kinopolis"
+    },
+    "Siegburg":{
+        "Cineplex":"Cineplex"
+    },
+    "Troisdorf":{
+        "Cineplex":"Cineplex"
+    }
+}
