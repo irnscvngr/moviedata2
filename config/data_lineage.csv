@@ -10,10 +10,17 @@ Web Scrape;pg_table;web.letterboxd;letterboxd.watchlist;;
 ;pg_view;;letterboxd.recommended_movies;;
 ;pg_view;;letterboxd.recommended_movies_for_metadata_scraping;;Compares recommended movies with existing movies in DB to add new movies.
 ;pg_view;;letterboxd.shop_candidates;;
+;pg_view;;letterboxd.watched_and_watchlist;;
 Web Scrape;pg_table;;medimops.shop_candidates;;deprecated
 Web Scrape;pg_table;;medimops.product_lines;;
 ;pg_view;;medimops.movie_price_evaluation;;
 ;pg_view;;medimops.movie_price_lines;;
 ;pg_view;;medimops.movie_price_lines2;;deprecated
-;pg_table;;letterboxd.watched;;???
-;pg_table;;moviedata.watched;;???
+;pg_table;;public.letterboxd.watched;;???
+;pg_table;;public.moviedata.watched;;???
+;pg_view;;public.shop_candidates;;
+;pg_view;;public.watchlist_with_scores;;
+;pg_table;;rottentomatoes.rt_all_movies_metadata;;
+;pg_view;;rottentomatoes.rt_movies_for_metadata_scraping;;
+;pg_view;;rottentomatoes.rt_movies_not_yet_watched;;
+;pg_table;;tmdb.german_titles;;
