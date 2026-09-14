@@ -1,4 +1,10 @@
 import streamlit as st
+import sys
+import asyncio
+
+# Fix Playwright/Camoufox subprocess support on Windows under Streamlit
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 pages_general = [
     st.Page("pages/database_overview.py", title="Database Overview"),
