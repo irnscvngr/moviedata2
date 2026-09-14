@@ -12,6 +12,7 @@ from moviedata.core.database import pg_connect
 from moviedata.sources.letterboxd import letterboxd
 from moviedata.sources.rottentomatoes import rottentomatoes
 from moviedata.sources.medimops import medimops
+from moviedata.sources.choices import choices
 
 class updater:
     """
@@ -123,3 +124,16 @@ class updater:
         mm.get_blu_ray_data(df_scrape=df)
 
         print("[INFO] Medimops update pipeline finished!\n")
+
+
+    def update_choices(self):
+        """
+        """
+        print("\n==================================================")
+        print("[INFO] Choices update pipeline started!")
+
+        # Get all current movie showings from choices.de and write to database
+        cs = choices()
+        cs.get_all_movies()
+
+        print("[INFO] Choices update pipeline finished!\n")

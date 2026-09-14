@@ -19,6 +19,10 @@ st.button(
     label="Update Medimops Data",
     on_click=db_update.update_medimops)
 
+st.button(
+    label="Update Choices Data",
+    on_click=db_update.update_choices)
+
 # ==========================================================================================
 pg = pg_connect()
 db_overview = {
