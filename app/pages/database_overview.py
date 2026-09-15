@@ -21,7 +21,7 @@ st.button(
 
 st.button(
     label="Update Choices Data",
-    on_click=db_update.update_choices)
+    on_click=db_update.update_choices_current_screenings)
 
 # ==========================================================================================
 pg = pg_connect()
