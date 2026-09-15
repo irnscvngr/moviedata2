@@ -10,7 +10,7 @@ from moviedata.sources.choices import choices
 
 def test_choices_init():
     """
-    Test if init function works and assigs base parameters.
+    Test if init function works and assigns base parameters.
     """
     cs = choices()
     assert cs.base_url is not None

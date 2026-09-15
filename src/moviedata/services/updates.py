@@ -4,6 +4,7 @@ Module to update database
 from datetime import datetime
 import pytz
 import json
+import time
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ from moviedata.sources.letterboxd import letterboxd
 from moviedata.sources.rottentomatoes import rottentomatoes
 from moviedata.sources.medimops import medimops
 from moviedata.sources.choices import choices
+from moviedata.sources.tmdb import tmdb
 
 class updater:
     """
@@ -126,14 +128,154 @@ class updater:
         print("[INFO] Medimops update pipeline finished!\n")
 
 
-    def update_choices(self):
+    def update_choices_current_screenings(self):
         """
         """
         print("\n==================================================")
-        print("[INFO] Choices update pipeline started!")
+        print("[INFO] Choices update - get current screenings - pipeline started!")
 
         # Get all current movie showings from choices.de and write to database
         cs = choices()
         cs.get_all_movies()
 
-        print("[INFO] Choices update pipeline finished!\n")
+        print("[INFO] Choices update - get current screenings - pipeline finished!\n")
+
+
+    def update_choices_tmdb_data(self):
+        """
+        """
+        print("\n==================================================")
+        print("[INFO] Choices update - get TMDB data - pipeline started!")
+
+        df_movie_select = self.pg_con.sql_query(
+            """
+            SELECT *
+            FROM choices.current_movies a
+            LEFT JOIN tmdb.movie_details b
+            ON a.title = b.title_german
+            AND a.year = EXTRACT(year from b.release_date)
+            WHERE b.title_german IS NULL;
+            """
+        )
+
+        tm = tmdb()
+
+        for i,row in df_movie_select.iterrows():
+            print("\n--------------------------------------------------")
+            print(f"[INFO] ({i+1}/{df_movie_select.shape[0]}) Processing '{row['title']}'")
+
+            # .................................................................
+            # GET DATA - DETAILS
+            print("[INFO] Receiving details information from TMDB API...")
+            res = tm.get_movie_data(
+                movie_title=row['title'],
+                release_year=row['year'],
+                language='de-DE',
+                category='details'
+            )
+
+            if res is None:
+                print("[WARNING] Failed to obtain movie details! Skipping movie...")
+                continue
+
+            # Extract movie_id
+            movie_id = res['id']
+            print(f"[INFO] Found movie on TMDB! Title: '{res['title']}'")
+
+            # Extract necessary parts of API-response
+            skip_keys = ['adult','status','video','softcore','belongs_to_collection']
+            res_filt = {key:val for key,val in res.items() if not (isinstance(val,dict) or isinstance(val,list)) and key not in skip_keys}
+
+            # Make dataframe from filtered API-response and adjust to write to database
+            df_res = (
+                pd.DataFrame([res_filt])
+                .rename(columns={
+                    'id':'tmdb_id',
+                    'title':'title_tmdb'
+                    })
+            )
+            # Add german title as well
+            df_res['title_german'] = row['title']
+
+            # Write to database
+            self.pg_con.write_df_to_postgres(
+                df=df_res,
+                schema_name="tmdb",
+                table_name="movie_details",
+                add_timestamp=True
+            )
+            print("[INFO] Successfully wrote movie details information to database!")
+
+            # .................................................................
+            # GET DATA - RELEASE DATES
+            print("[INFO] Receiving release dates information from TMDB API...")
+            res = tm.get_movie_data(
+                movie_id=movie_id,
+                category='release_dates'
+            )
+
+            if res is None:
+                print("[WARNING] Failed to obtain movie release dates! Continuing with next movie...")
+                continue
+
+            if "results" not in list(res.keys()):
+                print("[WARNING] 'results'-key not found in API-response! Continuing with next movie...")
+                continue
+
+            # Extract German release from results
+            res_x = None
+            for r in res['results']:
+                if r['iso_3166_1'] == 'DE':
+                    res_x = r['release_dates']
+
+            if res_x is None:
+                print("[WARNING] No German release information in API-response! Continuing with next movie...")
+                continue
+
+            print("[INFO] Successfully found German release information!")
+
+            # Extract theatrical release from potential multiple release informations
+            # (See API-reference: https://developer.themoviedb.org/reference/movie-release-dates)
+            res_x_t = None
+            if isinstance(res_x, list):
+                for r in res_x:
+                    if r['type'] == 3:
+                        res_x_t = r
+            if isinstance(res_x, dict):
+                print(f"res_x: {res_x}")
+                if res_x['type'] == 3:
+                    res_x_t = res_x
+
+            print("[INFO] Specified release information extracted!")
+
+            if res_x_t is None:
+                print("[WARNING] No theatrical release information found in API-response! Continuing with next movie...")
+                continue
+
+            # Postprocess API-result as it can contain empty strings or empty lists
+            for key,val in res_x_t.items():
+                if (val == '') or (val == []):
+                    res_x_t[key] = None
+
+            # Make dataframe from filtered API-response and adjust to write to database
+            df_res = (
+                pd.DataFrame([res_x_t])
+                [['certification','descriptors','release_date']]
+            )
+            df_res['tmdb_id'] = movie_id
+            df_res['title_german'] = row['title']
+
+            # Write to database
+            self.pg_con.write_df_to_postgres(
+                df=df_res,
+                schema_name="tmdb",
+                table_name="movie_release_dates",
+                add_timestamp=True
+            )
+            print("[INFO] Successfully wrote movie release dates information to database!")
+
+            # .................................................................
+            # Wait a little bit to not overflow the API
+            time.sleep(0.1)
+
+        print("[INFO] Choices update - get TMDB data - pipeline finished!\n")

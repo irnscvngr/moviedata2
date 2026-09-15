@@ -303,7 +303,7 @@ class choices(scraper):
             # Write results to database
             pg.write_df_to_postgres(
                 df=res,
-                table_name="movie_showings",
+                table_name="movie_screenings",
                 schema_name="choices",
                 add_timestamp=True
             )
@@ -313,3 +313,13 @@ class choices(scraper):
             time.sleep(random.random()*1.0)
 
         print("[INFO] Choices.de Movie processing completed successfully!\n")
+
+    def get_tmdb_details(self):
+        """
+        """
+        # -----------------------------------------------------------------------------------------------
+        # CONNECT TO DATABASE
+        pg = pg_connect()
+
+        df = pg.sql_query("""
+        """)
