@@ -10,3 +10,4 @@ sdist/
 .env
 .vscode
 /presentation
+*_bak*.hipnc
