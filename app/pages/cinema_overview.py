@@ -93,9 +93,10 @@ c0, c1 = st.columns(2)
 with c0:
     runtime_max = st.slider(
         label='select max. runtime',
-        min_value = df_screenings['runtime'].dropna().min(),
-        max_value = df_screenings['runtime'].dropna().max(),
-        value = df_screenings['runtime'].dropna().max(),
+        min_value = int(df_screenings['runtime'].dropna().min()),
+        max_value = int(df_screenings['runtime'].dropna().max()),
+        value = int(df_screenings['runtime'].dropna().max()),
+        step = 10,
     )
 
 # ..........................................................................................
@@ -106,7 +107,7 @@ with c1:
     age_max = st.select_slider(
         label='select max. age',
         options=[0,6,12,16,18],
-        value=12
+        value=18
     )
 
 # ..........................................................................................
