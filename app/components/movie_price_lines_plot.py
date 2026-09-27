@@ -24,7 +24,7 @@ class medimops_price_analyzer:
 
         df_recent_prices = pg.sql_query(f"""
             SELECT *
-            FROM medimops.product_lines
+            FROM "1_bronze"."memops__product_lines"
             WHERE load_timestamp >= NOW() - INTERVAL '8 weeks';
             """
         )
