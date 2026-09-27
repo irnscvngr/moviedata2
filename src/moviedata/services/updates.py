@@ -94,8 +94,8 @@ class updater:
 
         # 1 - Load view "rt_movies_for_metadata_scraping" from rottentomatoes schema
         df = self.pg_con.read_df_from_postgres(
-            table_name="rt_movies_for_metadata_scraping",
-            schema_name="rottentomatoes",
+            table_name="rotten__movies_for_metadata_scraping",
+            schema_name="2_silver",
             limit=None
         )
 
@@ -116,7 +116,7 @@ class updater:
         # 1 - Load view "shop_candidates" from public schema
         df = self.pg_con.read_df_from_postgres(
             table_name="shop_candidates",
-            schema_name="public",
+            schema_name="3_gold",
             limit=None
         )
 
@@ -150,8 +150,8 @@ class updater:
         df_movie_select = self.pg_con.sql_query(
             """
             SELECT *
-            FROM choices.current_movies a
-            LEFT JOIN tmdb.movie_details b
+            FROM "1_bronze"."choics__current_movies" a
+            LEFT JOIN "1_bronze"."tmdb__movie_details" b
             ON a.title = b.title_german
             AND a.year = EXTRACT(year from b.release_date)
             WHERE b.title_german IS NULL;

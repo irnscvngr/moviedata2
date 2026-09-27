@@ -47,8 +47,8 @@ df_screenings = (
                 b.runtime,
                 b.poster_path,
                 b.tmdb_id
-            FROM choices.current_screenings a
-            LEFT JOIN tmdb.movie_details b
+            FROM "1_bronze"."choics__current_screenings" a
+            LEFT JOIN "1_bronze"."tmdb__movie_details" b
             ON a.title = b.title_german
             AND a.year::numeric = EXTRACT(year FROM b.release_date)
         )
@@ -57,7 +57,7 @@ df_screenings = (
             lt.*,
             rt.certification
         FROM cte lt
-        LEFT JOIN tmdb.movie_release_dates rt
+        LEFT JOIN "1_bronze"."tmdb__movie_release_dates" rt
         ON lt.tmdb_id = rt.tmdb_id
         """)
 )
@@ -166,7 +166,7 @@ st.dataframe(df_screenings_select)
 df_movies = (
     pg
     .sql_query("""
-        SELECT * FROM choices.current_movie_detailed
+        SELECT * FROM "2_silver"."choics__current_movie_detailed"
         ORDER BY title ASC
         """)
 )
@@ -197,7 +197,7 @@ df_screenings_selected = (
             TO_CHAR(timestamp, 'DD.MM.') AS day,
             TO_CHAR(timestamp, 'HH24:MI') AS time,
             link
-        FROM choices.current_screenings
+        FROM "1_bronze"."choics__current_screenings"
         WHERE title = '{movies_years[movie_select_index][0]}'
         AND year = '{movies_years[movie_select_index][1]}'
         ORDER BY day, time

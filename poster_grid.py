@@ -156,8 +156,8 @@ class image_grid:
                 b.duration,
                 b.genres,
                 b.poster
-                FROM letterboxd.ratings a
-                LEFT JOIN letterboxd.lb_all_movies_metadata b
+                FROM "1_bronze"."ltboxd__ratings" a
+                LEFT JOIN "1_bronze"."ltboxd"."all_movies_metadata" b
                 ON a.letterboxd_uri = b.letterboxd_uri
                 ORDER BY rating DESC
             """)

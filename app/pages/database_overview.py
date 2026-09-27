@@ -26,36 +26,36 @@ st.button(
 # ==========================================================================================
 pg = pg_connect()
 db_overview = {
-    "letterboxd":{
+    "1_bronze":{
         "tables":{
-            "lb_all_movies_metadata":{
-                "display_name":"All Movies Metadata",
+            "ltboxd__all_movies_metadata":{
+                "display_name":"Letterboxd All Movies Metadata",
                 "count":None
             },
-            "watched":{
-                "display_name":"Watched",
+            "ltboxd__watched":{
+                "display_name":"Letterboxd Watched",
                 "count":None
             },
-            "ratings":{
-                "display_name":"Ratings",
+            "ltboxd__ratings":{
+                "display_name":"Letterboxd Ratings",
                 "count":None
             },
-            "watchlist":{
-                "display_name":"Watchlist",
+            "ltboxd__watchlist":{
+                "display_name":"Letterboxd Watchlist",
                 "count":None
             },
-            "br_collection":{
-                "display_name":"Blu Ray Collection",
+            "ltboxd__br_collection":{
+                "display_name":"Letterboxd Blu Ray Collection",
                 "count":None
             }
         },
-        "display_name":"Letterboxd"
+        "display_name":"Bronze Layer"
     }
 }
 
 for schema, subdict_schema in db_overview.items():
     for table, subdict_table in subdict_schema['tables'].items():
-        df = pg.sql_query(f"""SELECT COUNT("letterboxd_uri") FROM {schema}.{table}""")
+        df = pg.sql_query(f"""SELECT COUNT("letterboxd_uri") FROM "{schema}"."{table}" """)
         subdict_table['count'] = df.iloc[0,0]
 
 # ==========================================================================================

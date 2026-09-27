@@ -431,8 +431,8 @@ class rottentomatoes(scraper):
             # Write DF to DB
             pg.write_df_to_postgres(
                 df=df_out,
-                table_name="rt_all_movies_metadata",
-                schema_name="rottentomatoes",
+                table_name="rotten__all_movies_metadata",
+                schema_name="1_bronze",
                 add_timestamp=False
             )
 

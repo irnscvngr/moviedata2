@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str = "moviedata"
+    POSTGRES_DB: str = "moviedata_restructure"
 
     @property
     def database_url(self) -> str:

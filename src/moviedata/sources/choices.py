@@ -303,8 +303,8 @@ class choices(scraper):
             # Write results to database
             pg.write_df_to_postgres(
                 df=res,
-                table_name="movie_screenings",
-                schema_name="choices",
+                table_name="choics__movie_screenings",
+                schema_name="1_bronze",
                 add_timestamp=True
             )
             print("[INFO] Successfully stored results to database!")

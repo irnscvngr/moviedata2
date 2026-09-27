@@ -245,8 +245,8 @@ class medimops(scraper):
             # Write results to database
             pg.write_df_to_postgres(
                 df=df_res,
-                table_name="product_lines",
-                schema_name="medimops"
+                table_name="memops__product_lines",
+                schema_name="1_bronze"
             )
 
             print("[INFO] Search results successfully written to database!")

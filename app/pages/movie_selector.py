@@ -30,7 +30,7 @@ st.markdown(
 # Get available genres
 genres = (
     pg
-    .sql_query("""SELECT DISTINCT genre FROM letterboxd.movie_genres""")
+    .sql_query("""SELECT DISTINCT genre FROM "1_bronze"."ltboxd__movie_genres" """)
     ['genre']
     .sort_values()
     .tolist()
@@ -92,13 +92,13 @@ df = pg.sql_query(
     """
     SELECT 
     -- Count matched items divided by total items in watchlist
-    COUNT(*)::NUMERIC / NULLIF((SELECT COUNT(*) FROM letterboxd.watchlist), 0) AS coverage_ratio,
+    COUNT(*)::NUMERIC / NULLIF((SELECT COUNT(*) FROM "1_bronze"."ltboxd__watchlist"), 0) AS coverage_ratio,
     
     -- Absolute numbers for context
     COUNT(*) AS matched_movies,
-    (SELECT COUNT(*) FROM letterboxd.watchlist) AS total_watchlist_movies
-    FROM rottentomatoes.rt_all_movies_metadata
-    WHERE letterboxd_uri IN (SELECT letterboxd_uri FROM letterboxd.watchlist);
+    (SELECT COUNT(*) FROM "1_bronze"."ltboxd__watchlist") AS total_watchlist_movies
+    FROM "1_bronze"."rotten__all_movies_metadata"
+    WHERE letterboxd_uri IN (SELECT letterboxd_uri FROM "1_bronze"."ltboxd__watchlist");
     """
 ).to_dict('records')[0]
 
@@ -119,7 +119,7 @@ df = (
         w.description,
         w.critics_score,
         w.audience_score
-    FROM public.watchlist_with_scores w
+    FROM "3_gold"."watchlist_with_scores" w
     WHERE w.critics_score >= {select_critics_score[0]}
     AND w.critics_score <= {select_critics_score[1]}
     -- audience score
@@ -137,7 +137,7 @@ df = (
     -- genre filter
     AND EXISTS (
         SELECT 1 
-        FROM letterboxd.movie_genres g
+        FROM "1_bronze"."ltboxd__movie_genres" g
         WHERE g.letterboxd_uri = w.letterboxd_uri
         AND g.genre->>0 IN {formatted_genres}
     )

@@ -28,7 +28,7 @@ class pg_connect:
     def read_df_from_postgres(self, table_name: str, schema_name: str, limit=500):
         """
         """
-        query = f"SELECT * FROM {schema_name}.{table_name}"
+        query = f"""SELECT * FROM "{schema_name}"."{table_name}" """
         if limit is not None:
             query = f"{query} LIMIT {limit}"
 
