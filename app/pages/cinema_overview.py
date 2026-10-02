@@ -42,25 +42,37 @@ df_screenings = (
                 a.city,
                 a.cinema,
                 a.title,
-                a.year,
+                -- Get year from TMDB to join with details later
+                b.year_tmdb AS year
+            FROM "1_bronze"."choics__current_screenings" a
+            LEFT JOIN "2_silver".choics__get_closest_tmdb_movie_by_year b
+            ON a.title = b.title
+            AND a.year = b.year_choices
+        ),
+        cte2 AS (
+            SELECT
+                cte.*,
                 -- Get additional information from TMDB details
                 b.runtime,
                 b.poster_path,
                 b.tmdb_id
-            FROM "1_bronze"."choics__current_screenings" a
+            FROM cte
             LEFT JOIN "1_bronze"."tmdb__movie_details" b
-            ON a.title = b.title_german
-            AND a.year::numeric = EXTRACT(year FROM b.release_date)
+            ON cte.title = b.title_german
+            AND cte.year = EXTRACT(year FROM b.release_date)
         )
         -- Add age certification from TMDB release dates
         SELECT
             lt.*,
             rt.certification
-        FROM cte lt
+        FROM cte2 lt
         LEFT JOIN "1_bronze"."tmdb__movie_release_dates" rt
         ON lt.tmdb_id = rt.tmdb_id
+        -- Order by title and year for data cleaning later
+        ORDER BY title, year
         """)
 )
+
 # Some movies have '0' runtime -> Set to None to avoid filtering problems
 df_screenings.loc[df_screenings['runtime']==0, 'runtime'] = None
 
