@@ -294,7 +294,7 @@ class updater:
         # EXTRACT FROM URL WITH REGEX
 
         # Get movie id
-        match = re.search(r"movie/([0-9]+)-", tmdb_url)
+        match = re.search(r"movie\/([0-9]+)", tmdb_url)
         if match is None:
             print("[WARNING] No movie ID found in URL! Returning None!")
             return None
