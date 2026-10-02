@@ -92,6 +92,9 @@ class tmdb(scraper):
         if len(zero_delta_elements) == 1:
             print("[INFO] Only 1 zero-delta element found. Selection conclusive!")
             return el_select
+        elif len(zero_delta_elements) == 0:
+            print("[WARNING] No zero-delta element found! Returning None!")
+            return None
         else:
             print(f"[WARNING] More than 1 zero-delta element found (found {len(zero_delta_elements)}). Selecting by name...")
             for el in zero_delta_elements:
@@ -129,10 +132,12 @@ class tmdb(scraper):
             language="en-US",
             category="details"):
         """
-        category:
+        Queries TMDB API to get movie information
+        of the following categories:
         - details
         - translations
         - release_dates
+        Returns JSON
         """
         # ---------------------------------------------------------------------------
         # TMDB API needs movie_id for query.
