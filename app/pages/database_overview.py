@@ -24,6 +24,15 @@ st.button(
     on_click=db_update.update_choices_current_screenings)
 
 # ==========================================================================================
+st.divider()
+"### Manual database ingest"
+"**Add movie to TMDB data from URL**"
+tmdb_url = st.text_input(label='tmdb_url', label_visibility='collapsed')
+st.button(
+    label="Update TMDB from URL",
+    on_click=db_update.update_tmdb_from_url(tmdb_url=tmdb_url))
+
+# ==========================================================================================
 pg = pg_connect()
 db_overview = {
     "1_bronze":{

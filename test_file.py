@@ -7,4 +7,6 @@ import bs4
 from bs4 import BeautifulSoup
 
 ud = updater()
-ud.update_tmdb_data_from_choices()
+tmdb_url = "https://www.themoviedb.org/movie/96820-vaterland?language=de"
+tmdb_url = "https://www.themoviedb.org/movie/157832-calvary?language=de"
+ud.update_tmdb_from_url(tmdb_url=tmdb_url)

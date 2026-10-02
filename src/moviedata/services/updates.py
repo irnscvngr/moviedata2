@@ -5,6 +5,7 @@ from datetime import datetime
 import pytz
 import json
 import time
+import re
 
 import pandas as pd
 
@@ -284,6 +285,123 @@ class updater:
 
         print("[INFO] Choices update - get TMDB data - pipeline finished!\n")
 
+
+    def update_tmdb_from_url(self, tmdb_url:str):
+        """
+        Takes TMDB-URL, extracts movie ID and adds it to TMDB tables.
+        """
+        # ......................................................................
+        # EXTRACT FROM URL WITH REGEX
+
+        # Get movie id
+        match = re.search(r"movie/([0-9]+)-", tmdb_url)
+        if match is None:
+            print("[WARNING] No movie ID found in URL! Returning None!")
+            return None
+        else:
+            movie_id = match.group(1)
+            print(f"[INFO] Found movie ID '{movie_id}'!")
+
+        # ......................................................................
+        # GET MOVIE DATA
+
+        tm = tmdb()
+        # Get english movie data
+        res = tm.get_movie_data(
+            movie_id=movie_id,
+            language='en-US')
+        # Make pandas dataframe from english data
+        df_res = tm.movie_data_to_dataframe(res)
+
+        # Get German title
+        res = tm.get_movie_data(
+            movie_id=movie_id,
+            language='de-DE')
+
+        # Add German title
+        title_german = res['title']
+        df_res['title_german'] = title_german
+
+        # .................................................................
+        # WRITE TO DATABASE
+        self.pg_con.write_df_to_postgres(
+            df=df_res,
+            schema_name="1_bronze",
+            table_name="tmdb__movie_details",
+            add_timestamp=True
+        )
+        print("[INFO] Successfully wrote movie details information to database!")
+
+        # .................................................................
+        # GET DATA - RELEASE DATES
+        print("[INFO] Receiving release dates information from TMDB API...")
+        res = tm.get_movie_data(
+            movie_id=movie_id,
+            category='release_dates'
+        )
+
+        if res is None:
+            print("[WARNING] Failed to obtain movie release dates! Returning None!")
+            return None
+
+        if "results" not in list(res.keys()):
+            print("[WARNING] 'results'-key not found in API-response! Returning None!")
+            return None
+
+        # Extract German release from results
+        res_x = None
+        for r in res['results']:
+            if r['iso_3166_1'] == 'DE':
+                res_x = r['release_dates']
+
+        if res_x is None:
+            print("[WARNING] No German release information in API-response! Returning None!")
+            return None
+
+        print("[INFO] Successfully found German release information!")
+
+        # Extract theatrical release from potential multiple release informations
+        # (See API-reference: https://developer.themoviedb.org/reference/movie-release-dates)
+        res_x_t = None
+        if isinstance(res_x, list):
+            for r in res_x:
+                if r['type'] == 3:
+                    res_x_t = r
+        if isinstance(res_x, dict):
+            print(f"res_x: {res_x}")
+            if res_x['type'] == 3:
+                res_x_t = res_x
+
+        print("[INFO] Specified release information extracted!")
+
+        if res_x_t is None:
+            print("[WARNING] No theatrical release information found in API-response! Returning None!")
+            return None
+
+        # Postprocess API-result as it can contain empty strings or empty lists
+        for key,val in res_x_t.items():
+            if (val == '') or (val == []):
+                res_x_t[key] = None
+
+        # Make dataframe from filtered API-response and adjust to write to database
+        df_res = (
+            pd.DataFrame([res_x_t])
+            [['certification','descriptors','release_date']]
+        )
+        df_res['tmdb_id'] = movie_id
+        df_res['title_german'] = title_german
+        
+        # .................................................................
+        # WRITE TO DATABASE
+        self.pg_con.write_df_to_postgres(
+            df=df_res,
+            schema_name="1_bronze",
+            table_name="tmdb__movie_release_dates",
+            add_timestamp=True
+        )
+        print("[INFO] Successfully wrote movie release dates information to database!")
+        
+
     def update_tmdb_data(self, df_movies:pd.DataFrame, language='en-US'):
         """
         Updates tmdb__movie_details and tmdb__movie_release_dates table.
@@ -347,18 +465,8 @@ class updater:
             # .................................................................
             # CONVERT RESPONSE TO DATAFRAME
 
-            # Extract necessary parts of API-response
-            skip_keys = ['adult','status','video','softcore','belongs_to_collection']
-            res_filt = {key:val for key,val in res.items() if not (isinstance(val,dict) or isinstance(val,list)) and key not in skip_keys}
-
             # Make dataframe from filtered API-response and adjust to write to database
-            df_res = (
-                pd.DataFrame([res_filt])
-                .rename(columns={
-                    'id':'tmdb_id',
-                    'title':'title_tmdb'
-                    })
-            )
+            df_res = tm.movie_data_to_dataframe(res)
 
             # Add german title as well
             if language=='de-DE':

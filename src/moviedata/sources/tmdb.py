@@ -172,6 +172,7 @@ class tmdb(scraper):
 
         params = {
             "api_key": self.TMDB_API_KEY,
+            "language": language
         }
 
         print(f"[INFO] Calling TMDB API for movie id {movie_id}...\nurl: {url}")
@@ -183,4 +184,22 @@ class tmdb(scraper):
 
         return response.json()
 
-    
+    def movie_data_to_dataframe(self, res:dict) -> pd.DataFrame:
+        """
+        Takes result from get_movie_data method and converts it to pandas dataframe.
+        Pandas dataframe is limited in data but optimized for pg-database structure.
+        """
+        # Extract necessary parts of API-response
+        skip_keys = ['adult','status','video','softcore','belongs_to_collection']
+        res_filt = {key:val for key,val in res.items() if not (isinstance(val,dict) or isinstance(val,list)) and key not in skip_keys}
+
+        # Make dataframe from filtered API-response and adjust to write to database
+        df_res = (
+            pd.DataFrame([res_filt])
+            .rename(columns={
+                'id':'tmdb_id',
+                'title':'title_tmdb'
+                })
+        )
+
+        return df_res
