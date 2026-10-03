@@ -76,12 +76,12 @@ class updater:
                 print(f"[INFO] Overwrite table: {config['overwrite']}")
                 self.pg_con.write_df_to_postgres(
                     df,
-                    table_name=table,
-                    schema_name="letterboxd",
+                    table_name=f"ltboxd__{table}",
+                    schema_name="1_bronze",
                     overwrite=config['overwrite']
                 )
-            except:
-                print(f"[WARNING] Failed to write table {table} to database! Skipping table...")
+            except Exception as e:
+                print(f"[WARNING] Failed to write table {table} to database! Skipping table...\n{e}")
                 continue
 
         print("\n[INFO] Letterboxd update pipeline finished!\n")
