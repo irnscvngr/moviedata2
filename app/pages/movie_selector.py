@@ -1,9 +1,8 @@
 from datetime import datetime
 
 import streamlit as st
-import pandas as pd
 from moviedata.core.database import pg_connect
-from components.image_grid import display_centered_images
+from components.image_grid import display_centered_images, hover_image_movie_selector
 
 # Reduce the top margin/padding of the main container
 st.markdown(
@@ -148,9 +147,12 @@ df = (
 )
 
 # Display images:
-display_centered_images(df.iloc[0:3,:], max_images=3, descr_length=200)
-if df.shape[0] > 3:
-    display_centered_images(df.iloc[3:6,:], max_images=3, descr_length=200)
+display_centered_images(
+    df_in=df,
+    max_images_x=4,
+    max_images_y=3,
+    hover_func=hover_image_movie_selector
+    )
 
 # Display dataframe
 st.dataframe(
