@@ -4,7 +4,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from moviedata.core.database import pg_connect
-from components.image_grid import display_centered_images
+from components.image_grid import display_centered_images, hover_image_cinema_overview
 
 # Reduce the top margin/padding of the main container
 st.markdown(
@@ -116,10 +116,10 @@ with c0:
 
 # Select min age
 with c1:
-    age_max = st.select_slider(
+    age_min, age_max = st.select_slider(
         label='select max. age',
         options=[0,6,12,16,18],
-        value=18
+        value=(0,18)
     )
 
 # ..........................................................................................
@@ -128,6 +128,7 @@ sel = (
     df_screenings['city'].isin(df_cinemas.loc[cinema_select,'city'])
     & df_screenings['cinema'].isin(df_cinemas.loc[cinema_select,'cinema'])
     & ((df_screenings['runtime'] <= runtime_max) | df_screenings['runtime'].isna())
+    & ((df_screenings['certification'] >= age_min) | df_screenings['certification'].isna())
     & ((df_screenings['certification'] <= age_max) | df_screenings['certification'].isna())
 )
 
@@ -154,7 +155,19 @@ df_screenings_select = (
                 ],
             )
     .drop(columns='isna')
+    .reset_index(drop=True)
 )
+
+# Create fully qualified poster URL
+df_screenings_select['poster_url'] = "https://image.tmdb.org/t/p/w400" + df_screenings_select['poster']
+
+
+# ..........................................................................................
+# ADD ADDITIONAL INFORMATION
+
+df_screenings_select['meta_score'] = -11
+df_screenings_select['critics_score'] = -11
+df_screenings_select['audience_score'] = -11
 
 # ..........................................................................................
 # SHOW POSTERS OF SELECTED MOVIES
@@ -163,12 +176,40 @@ df_screenings_select = (
 # base_url = https://image.tmdb.org/t/p/w500 (select a width, e.g. w500)
 # poster_url = /vhv7lBWYM0DUuNU2a0V7Rhq21dD.jpg
 
+cnt_movies_total=df_screenings_select.shape[0]
 f"""
-#### {df_screenings_select.shape[0]} movies total
+#### {cnt_movies_total} movies total
 """
 
-# Just show dataframe for now...
-st.dataframe(df_screenings_select)
+# Display movie images in container
+cont = st.container(height=800)
+with cont:
+    col_a, col_b = st.tabs(['Posters','Table'])
+    # Display movie poster grid
+    with col_a:
+        display_centered_images(
+            df_in=df_screenings_select,
+            max_images_x=4,
+            max_images_y=cnt_movies_total//4 + 1,
+            col_poster_url='poster_url',
+            hover_func=hover_image_cinema_overview
+        )
+    # Display movie table
+    with col_b:
+        st.dataframe(
+            df_screenings_select[[
+                'title',
+                'year',
+                'runtime',
+                'fsk',
+                'screening_cnt',
+                'cinema_cnt',
+                'meta_score',
+                'critics_score',
+                'audience_score'
+            ]],
+            height=700)
+
 
 
 # ==========================================================================================
