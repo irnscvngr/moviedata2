@@ -19,9 +19,17 @@ st.button(
     label="Update Medimops Data",
     on_click=db_update.update_medimops)
 
+def update_choices():
+    """
+    Updates current screenings from choices
+    and also related TMDB data
+    """
+    db_update.update_choices_current_screenings()
+    db_update.update_tmdb_data_from_choices()
+
 st.button(
     label="Update Choices Data",
-    on_click=db_update.update_choices_current_screenings)
+    on_click=update_choices)
 
 # ==========================================================================================
 st.divider()
