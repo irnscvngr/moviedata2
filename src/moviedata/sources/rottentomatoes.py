@@ -418,7 +418,10 @@ class rottentomatoes(scraper):
             print("[INFO] Metadata parsed successfully! Adding base info to dictionary...")
             movie_metadata['name'] = row['name']
             movie_metadata['year'] = row['year']
-            movie_metadata['letterboxd_uri'] = row['letterboxd_uri']
+            if 'letterboxd_uri' in row.index:
+                movie_metadata['letterboxd_uri'] = row['letterboxd_uri']
+            else:
+                movie_metadata['letterboxd_uri'] = None
         
             # Add rotten tomatoes URL that was used
             movie_metadata['rottentomatoes_uri'] = movie_url
