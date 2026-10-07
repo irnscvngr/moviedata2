@@ -185,17 +185,29 @@ df_screenings_select['meta_score'] = (
     df_screenings_select['audience_score']        
 )/2
 
+
+# ..........................................................................................
+# SHOW SOME STATISTICS
+
+c0, c1, c2 = st.columns(3)
+with c0:
+    cnt_movies_total=df_screenings_select.shape[0]
+    f"""
+    **{cnt_movies_total} movies total**
+    """
+with c1:
+    cnt_screenings_total=df_screenings_select['screening_cnt'].sum()
+    f"""
+    **{cnt_screenings_total} screenings total**
+    """
+with c2:
+    avg_runtime=df_screenings_select['runtime'].median().round()
+    f"""
+    **{avg_runtime:.0f} min. median runtime**
+    """
+
 # ..........................................................................................
 # SHOW POSTERS OF SELECTED MOVIES
-
-# Poster URL:
-# base_url = https://image.tmdb.org/t/p/w500 (select a width, e.g. w500)
-# poster_url = /vhv7lBWYM0DUuNU2a0V7Rhq21dD.jpg
-
-cnt_movies_total=df_screenings_select.shape[0]
-f"""
-#### {cnt_movies_total} movies total
-"""
 
 # Display movie images in container
 cont = st.container(height=800)
