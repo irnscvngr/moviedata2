@@ -82,7 +82,7 @@ def hover_image_cinema_overview(vals):
             <p style="font-size:14px; margin-bottom: 0px"> {vals['runtime']:.0f} min / FSK {vals['fsk']:.0f}</p>
             <p style="font-size:16px; font-weight:bold; margin-bottom: 0px"> {vals['title']}</p>
             <p style="font-size:14px; margin-bottom: 6px"> {vals['year']:.0f}</p>
-            <p style="font-size:12px; margin:2px 0;">⭐ {vals['meta_score']} (🍅 {vals['critics_score']} 🍿 {vals['audience_score']})</p>
+            <p style="font-size:12px; margin:2px 0;">⭐ {vals['meta_score']} (🍅 {vals['critics_score']:.0f} 🍿 {vals['audience_score']:.0f})</p>
         </div>
     </div>
     """

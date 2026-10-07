@@ -36,7 +36,7 @@ st.markdown(
 df_screenings = (
     pg
     .sql_query("""
-        WITH cte AS (
+        WITH cte_basic_infos AS (
             SELECT
                 -- Get basic movie information from screenings
                 a.city,
@@ -49,23 +49,35 @@ df_screenings = (
             ON a.title = b.title
             AND a.year = b.year_choices
         ),
-        cte2 AS (
+        cte_detailed_infos AS (
             SELECT
-                cte.*,
+                cte_basic_infos.*,
                 -- Get additional information from TMDB details
                 b.runtime,
                 b.poster_path,
                 b.tmdb_id
-            FROM cte
+            FROM cte_basic_infos
             LEFT JOIN "1_bronze"."tmdb__movie_details" b
-            ON cte.title = b.title_german
-            AND cte.year = EXTRACT(year FROM b.release_date)
+            ON cte_basic_infos.title = b.title_german
+            AND cte_basic_infos.year = EXTRACT(year FROM b.release_date)
+        ),
+        cte_rotten_scores AS (
+            SELECT
+                cte_detailed_infos.*,
+                -- Get additional information from Rotten Tomatoes
+                b.critics_score,
+                b.audience_score,
+                b.consensus
+            FROM cte_detailed_infos
+            LEFT JOIN "1_bronze"."rotten__all_movies_metadata" b
+            ON cte_detailed_infos.title = b.name
+            AND cte_detailed_infos.year = b.year
         )
         -- Add age certification from TMDB release dates
         SELECT
             lt.*,
             rt.certification
-        FROM cte2 lt
+        FROM cte_rotten_scores lt
         LEFT JOIN "1_bronze"."tmdb__movie_release_dates" rt
         ON lt.tmdb_id = rt.tmdb_id
         -- Order by title and year for data cleaning later
@@ -142,7 +154,10 @@ df_screenings_select = (
         fsk = ('certification', 'first'),
         screening_cnt = ('str_cinema', 'count'),
         cinema_cnt = ('str_cinema', lambda x: len(np.unique(x))),
-        poster = ('poster_path', 'first')
+        poster = ('poster_path', 'first'),
+        critics_score = ('critics_score', 'first'),
+        audience_score = ('audience_score', 'first'),
+        consensus = ('consensus', 'first'),
     )
 )
 df_screenings_select['isna'] = df_screenings_select[['runtime','fsk']].isna().min(axis=1)
@@ -165,9 +180,10 @@ df_screenings_select['poster_url'] = "https://image.tmdb.org/t/p/w400" + df_scre
 # ..........................................................................................
 # ADD ADDITIONAL INFORMATION
 
-df_screenings_select['meta_score'] = -11
-df_screenings_select['critics_score'] = -11
-df_screenings_select['audience_score'] = -11
+df_screenings_select['meta_score'] = (
+    df_screenings_select['critics_score'] +
+    df_screenings_select['audience_score']        
+)/2
 
 # ..........................................................................................
 # SHOW POSTERS OF SELECTED MOVIES
