@@ -1,5 +1,11 @@
+"""
+Module providing handy utilities for general tasks.
+"""
 import io
+import re
 import zipfile
+from unidecode import unidecode
+import urllib.parse
 
 def extract_file_from_zip_io(zip_buffer:io.BytesIO, filepath:str):
     """
@@ -55,3 +61,50 @@ def hsl_to_rgb(hsl: tuple) -> tuple:
     b = round((b_p + m) * 255)
 
     return r, g, b
+
+def parse_name_for_url(
+        input_string:str,
+        regular_url_parse=True,
+        force_ascii_characters=False,
+        replace_whitespace=False,
+        remove_whitespace=False,
+        replace_ampersand=False,
+        replace_percent=False,
+        remove_all_symbols=False):
+    """
+    Receives a "regular" input string (natural spelling).
+    Then transforms it for usage in URLs.
+    """
+    # Initialize output
+    parsed_string = input_string
+
+    if force_ascii_characters:
+        # Replace all accents or otherwise non-ASCII characters with regular characters
+        # è -> e, ö -> o, ß -> ss
+        parsed_string = unidecode(input_string)
+    if replace_ampersand:
+        # Replace "&" with written "and"
+        parsed_string = parsed_string.replace("&","and")
+    if replace_percent:
+        # Replace "%" with written "percent"
+        parsed_string = parsed_string.replace("%","percent")
+    if remove_all_symbols:
+        # Remove all symbols from the movie name
+        parsed_string = re.sub(r'[^\w\s]', '', parsed_string)
+    if replace_whitespace:
+        # Replace empty space with underscores and make all lower chars
+        parsed_string = (
+            parsed_string
+            .replace(" ","_")
+            .lower()
+        )
+        # Find 2 or more consecutive underscores and replace with a single underscore
+        # e.g. Louise__Thelma -> Louise_Thelma
+        parsed_string = re.sub(r'_{2,}', '_', parsed_string)
+    if remove_whitespace:
+        parsed_string = parsed_string.replace(" ","")
+    if regular_url_parse:
+        # Perform regular URL-parsing, e.g. whitespace to %20
+        parsed_string = urllib.parse.quote(parsed_string, safe=":/=?&")
+
+    return parsed_string
