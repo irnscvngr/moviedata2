@@ -11,12 +11,15 @@ from moviedata.sources.rottentomatoes import rottentomatoes
 
 def test_rottentomatoes_parse_rt_search_results():
     """
-    Test if search results from rotten tomatoes are parsed correctly.
+    Test if search results from rotten tomatoes are parsed correctly
+    (meaning a search by name and year should return the necessary movie URL).
     Some movies might be called with e.g. year 2026 but on rottentomatoes
     they are listed as 2025.
 
     The function needs to be able to identify those as the same movies
-    and return the correct result.
+    and return the correct URL on rottentomatoes.
+
+    Uses a CSV file with reference values for testing. Feel free to expand.
     """
     print("\n------------------------------------------------------------")
     print("[INFO] Testing Rottentomatoes 'parse_rt_search_results'")
@@ -46,3 +49,8 @@ def test_rottentomatoes_parse_rt_search_results():
     # Check if success rate is okay.
     # It makes no sense to use a 1:1 comparison, because some movies just fail to return on search in RT
     assert success_cnt/df_scrape.shape[0] > 0.8
+
+def test_rottentomatoes_get_movie_data():
+    """
+    
+    """
