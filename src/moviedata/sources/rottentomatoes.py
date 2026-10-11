@@ -9,7 +9,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from unidecode import unidecode
 from camoufox.sync_api import Camoufox
-from moviedata.core.tools import hsl_to_rgb
+from moviedata.core.tools import hsl_to_rgb, parse_name_for_url
 from moviedata.core.scraper import scraper
 from moviedata.core.database import pg_connect
 
@@ -22,6 +22,217 @@ class rottentomatoes(scraper):
         """
         super().__init__(domain="https://www.rottentomatoes.com", timeout=timeout)
         self.userdata = None
+
+    def parse_rt_search_results(self, name:str, year:int) -> str:
+        """
+        Receives movie name and release year.
+        Performs search on rottentomatoes.
+        Either finds movie directly or chooses movie within
+        threshold distance of time.
+        e.g. search for 2026, result shows 2025 -> pick 2025 result
+        if search for 2025 shows results for 1972, do not use result.
+
+        Input:
+        - name      Movie name
+        - year      Movie release year
+
+        Returns:
+        - res_url   URL to rottentomatoes page of movie
+        """
+        print(f"\n[INFO] Performing RT search! | {name} ({year})")
+
+        # ============================================================
+        # Helper function to query RT for search by URL
+        def get_rt_search_results(search_url_parsed):
+            """
+            Function to call RT with a parsed URL and return list of dictionaries with search results.
+            """
+            # Perform search on RottenTomatoes
+            soup = self.get_soup(request_url=search_url_parsed)
+    
+            # Store search result HTML to disk
+            # with open(f"rotten_searchresults_soup {name} {year}.html", "w", encoding="utf-8") as file:
+            #     file.write(soup.prettify())
+    
+            search_res = soup.find_all(attrs={"data-qa":"search-result"})
+            print(f"[INFO] Search returned {len(search_res)} results!")
+    
+            # Initialize list to store search results
+            search_res_parsed = []
+    
+            # Go through all search results
+            for el in search_res:
+                # Extract data row from search result
+                data_row = el.find(attrs={'data-qa':'data-row'})
+    
+                # Get release year
+                year_rt = data_row.get('release-year')
+                if year_rt is not None:
+                    year_rt = year_rt.strip()
+    
+                # Get name and URL
+                el_info = data_row.find(attrs={'data-qa':'info-name'})
+                name_rt = el_info.text
+                url_rt = el_info.get('href')
+                if name_rt is not None:
+                    name_rt = name_rt.strip()
+                if url_rt is not None:
+                    url_rt = url_rt.strip()
+
+                # Store results
+                res = {
+                    'name':name_rt,
+                    'year':year_rt,
+                    'url':url_rt
+                }
+                search_res_parsed.append(res)
+
+                # If search is conclusive stop and return True flag
+                if (name_rt is not None) and (year_rt is not None):
+                    if (name_rt == name) and (int(year_rt) == int(year)):
+                        return True, res
+
+            # Return flag for inconclusive search (=False) and list of search results
+            return False, search_res_parsed
+
+        # ============================================================
+        # Helper function to process the search results returned from RT
+        def examine_rt_search_results(search_res_parsed):
+            """
+            Go through list of search results and find best candidate.
+            """
+            if len(search_res_parsed) == 1:
+                df_search_res = pd.DataFrame(search_res_parsed, index=[0])
+            else:
+                df_search_res = pd.DataFrame(search_res_parsed)
+    
+            # Cast year-column as float (includes NaN) to get time difference
+            df_search_res['year'] = df_search_res['year'].astype(float)
+    
+            # Get difference between release-year from RT and release-year from search
+            df_search_res['year_dif'] = (df_search_res['year'] - int(year)).abs()
+
+            # Movie lowest time difference to the top
+            df_search_res= df_search_res.sort_values('year_dif')
+    
+            # Sort results by time difference and take top candidate
+            best_res = df_search_res.iloc[0,:].to_dict()
+
+            return best_res, df_search_res
+
+        # ============================================================
+        # Helper function in case results are not conclusive
+        def process_inconclusive_results(df_search_res:pd.DataFrame):
+            """
+            Some results are inconclusive.
+            Check for release-year differences and parse names
+            to potentially find a correct result.
+            """
+            if (df_search_res.loc[0,'name'] == name) and (df_search_res.loc[0,'year_dif'] == 0.0):
+                print("[INFO] 🟢 Found conclusive search result!")
+                return df_search_res.loc[0,'url']
+
+            if (df_search_res.loc[0,'name'] == name) and (df_search_res.loc[0,'year_dif'] <= 1.0):
+                print("[INFO] 🟢 Found search result within one year range!")
+                return df_search_res.loc[0,'url']
+
+            # Parse names for comparison (in cases like Alien³)
+            name_parsed = parse_name_for_url(
+                name,
+                regular_url_parse=False,
+                force_ascii_characters=True,
+                remove_all_symbols=True,
+                remove_whitespace=True
+                )
+            name_rt_parsed = parse_name_for_url(
+                df_search_res.loc[0,'name'],
+                regular_url_parse=False,
+                force_ascii_characters=True,
+                remove_all_symbols=True,
+                remove_whitespace=True
+                )
+
+            print(f"[WARNING] Failed to find candidate with given names. Adjusting names to (search) '{name_parsed}' and (result) '{name_rt_parsed}'")
+    
+            if (name_parsed == name_rt_parsed) and (df_search_res.loc[0,'year_dif'] == 0.0):
+                print("[INFO] 🟢 Found conclusive search result with parsed names!")
+                return df_search_res.loc[0,'url']
+    
+            if (name_parsed == name_rt_parsed) and (df_search_res.loc[0,'year_dif'] <= 1.0):
+                print("[INFO] 🟢 Found search result with parsed names and within one year range!")
+                return df_search_res.loc[0,'url']
+
+            if (set(name_parsed)==set(name_rt_parsed)) and (abs(1 - 1.0*len(name_parsed)/len(name_rt_parsed))<0.2):
+                print("[INFO] 🟢 Found search result by name similarity and within one year range!")
+                return df_search_res.loc[0,'url']
+
+            # If all fails, return None
+            return None
+            
+        # ===========================================================================
+        # PERFORM SEARCH WITH NAME ONLY
+
+        # Build search URL from movie name only (also adjust symbols etc.)
+        search_url_parsed = "https://www.rottentomatoes.com/search?search=" + parse_name_for_url(name, regular_url_parse=True)
+
+        # Perform RT-search
+        print(f"[INFO] Created search-URL: {search_url_parsed}")        
+        conclusive_flag, search_res_parsed = get_rt_search_results(search_url_parsed)
+
+        # If search was conclusive flag is True and search_res_parsed is dictionary for respective search result.
+        # Return URL directly
+        if conclusive_flag:
+            print("[INFO] 🟢 Found conclusive search result!")
+            return search_res_parsed['url']
+
+        # ...........................................................................
+        # PROCESS INCONCLUSIVE SEARCH RESULTS
+        # (Only executes if conclusive_flag was False)
+
+        print("[WARNING] ❌ Search results inconclusive! Examining list...")
+
+        _, df_search_res = examine_rt_search_results(search_res_parsed)
+
+        res_url = process_inconclusive_results(df_search_res)
+
+        if res_url is not None:
+            return res_url
+
+        # ===========================================================================
+        # PERFORM SEARCH WITH NAME AND YEAR
+        print("[WARNING] ❌ Search results still inconclusive! Performing new search with name and year...")
+
+        # Build search URL from movie name and year (also adjust symbols etc.)
+        search_url_parsed = "https://www.rottentomatoes.com/search?search=" + parse_name_for_url(f"{name} {year}", regular_url_parse=True)
+
+        # Perform RT-search
+        print(f"[INFO] Created search-URL: {search_url_parsed}")        
+        conclusive_flag, search_res_parsed = get_rt_search_results(search_url_parsed)
+
+        # If search was conclusive flag is True and search_res_parsed is dictionary for respective search result.
+        # Return URL directly
+        if conclusive_flag:
+            print("[INFO] 🟢 Found conclusive search result!")
+            return search_res_parsed['url']
+
+        # ...........................................................................
+        # PROCESS INCONCLUSIVE SEARCH RESULTS
+        # (Only executes if conclusive_flag was False)
+
+        print("[WARNING] ❌ Search results inconclusive! Examining list...")
+
+        _, df_search_res = examine_rt_search_results(search_res_parsed)
+
+        res_url = process_inconclusive_results(df_search_res)
+        
+        if res_url is not None:
+            return res_url
+
+        # ===========================================================================
+        # SEARCH FAILED
+        print("[WARNING] ❌ Both search attempts failed! Returning None...")
+        return None
+
     
     def get_movie_data(self, df_scrape: pd.DataFrame, preprocess_title=True):
         """
@@ -30,7 +241,7 @@ class rottentomatoes(scraper):
         rottentomatoes data.
 
         Input:
-        - df_scrape | necessary columns: name, year, letterboxd_uri
+        - df_scrape | necessary columns: name, year
 
         """
         # Ensure index of DF starts at 0 and movie name is available
