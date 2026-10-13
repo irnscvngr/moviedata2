@@ -103,7 +103,7 @@ class updater:
         # 2 - Scrape respective movies and append new data to
         # table "rt_all_movies_metadata"
         rt = rottentomatoes()
-        rt.get_movie_data(df_scrape=df, preprocess_title=True)
+        rt.get_movie_data(df_scrape=df)
 
         print("[INFO] Rottentomatoes update pipeline finished!\n")
 
