@@ -1,0 +1,51 @@
+{
+    "1_bronze":{
+        "tables":{
+            "ltboxd__all_movies_metadata":{
+                "display_name":"Letterboxd All Movies Metadata",
+                "count":""
+            },
+            "ltboxd__watched":{
+                "display_name":"Letterboxd Watched",
+                "count":""
+            },
+            "ltboxd__ratings":{
+                "display_name":"Letterboxd Ratings",
+                "count":""
+            },
+            "ltboxd__watchlist":{
+                "display_name":"Letterboxd Watchlist",
+                "count":""
+            },
+            "ltboxd__br_collection":{
+                "display_name":"Letterboxd Blu Ray Collection",
+                "count":""
+            },
+            "memops__product_lines":{
+                "display_name":"Medimops Product Prices",
+                "count":""
+            },
+            "memops__shop_candidates":{
+                "display_name":"Medimops Shop Candidates",
+                "count":""
+            },
+            "rotten__all_movies_metadata":{
+                "display_name":"Rottentomatoes All Movies Metadata",
+                "count":""
+            },
+            "tmdb__german_titles":{
+                "display_name":"TMDB German Titles",
+                "count":""
+            },
+            "tmdb__movie_details":{
+                "display_name":"TMDB Movie Details",
+                "count":""
+            },
+            "tmdb__movie_release_dates":{
+                "display_name":"TMDB Movie Release Dates",
+                "count":""
+            }
+        },
+        "display_name":"Bronze Layer"
+    }
+}
