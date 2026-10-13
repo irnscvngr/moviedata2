@@ -234,7 +234,7 @@ class rottentomatoes(scraper):
         return None
 
     
-    def get_movie_data(self, df_scrape: pd.DataFrame, preprocess_title=True):
+    def get_movie_data(self, df_scrape: pd.DataFrame):
         """
         Take dataframe as list for scraping.
         Then go through all listed movies and scrape
@@ -498,131 +498,44 @@ class rottentomatoes(scraper):
 
             return is_ok
 
-        def movie_name_for_rt_url(movie_name):
-            """
-            Receives a "regular" movie name from Letterboxd
-            (natural spelling).
-            Then transforms it for usage in rottentomatoes URL.
-            """
-            # Replace all accents or otherwise non-ASCII characters with regular characters
-            # è -> e, ö -> o, ß -> ss
-            movie_name = unidecode(movie_name)
-            # Replace "&" with written "and"
-            movie_name = movie_name.replace("&","and")
-            # Replace "%" with written "percent"
-            movie_name = movie_name.replace("%","percent")
-            # Remove all symbols from the movie name
-            movie_name = re.sub(r'[^\w\s]', '', movie_name)
-            # Replace empty space with underscores and make all lower chars
-            movie_name = (
-                movie_name
-                .replace(" ","_")
-                .lower()
-            )
-            # Find 2 or more consecutive underscores and replace with a single underscore
-            # e.g. Louise__Thelma -> Louise_Thelma
-            movie_name = re.sub(r'_{2,}', '_', movie_name)
-
-            return movie_name
-
         for i, row in df_scrape.iterrows():
             print("\n============================================================")
             print(f"[INFO] [{i+1}/{df_scrape.shape[0]}] Processing: {row['name']} ({row['year']})")
 
-            # Make movie name for URL
-            # (Either preprocess or not - depending on DF source)
-            if preprocess_title:
-                movie_name = movie_name_for_rt_url(row['name'])
-            else:
-                movie_name = row['name']
-            
-            print(f"[INFO] Adjusted movie name for URL usage to: {movie_name}")
+            # ==========================================================================================
+            # GET MOVIE URL AND SOUP
+            movie_url = self.parse_rt_search_results(name=row['name'], year=row['year'])
+
+            if movie_url is None:
+                print("[WARNING] Could not obtain movie URL. Skipping movie...")
+                continue
         
-            # Basic movie URL:
-            movie_url = f"https://www.rottentomatoes.com/m/{movie_name}"
-            print(f"[INFO] URL: {movie_url}")
-        
-            # ------------------------------------------------------------------------------------------
             # Get soup of movie page
             print("[INFO] Performing GET request and parsing soup...")
             # Initialize soup as None and error count to zero
             soup = None
 
-            # ..........................................................................................
-            # Bare movie name:
-            if soup is None:
-                try:
-                    movie_url = f"https://www.rottentomatoes.com/m/{movie_name}"
-                    print(f"[INFO] Trying simple movie name for URL... {movie_url}")
-                    soup = self.get_soup(request_url=movie_url)
-                    print("[INFO] Using simple movie name successful - soup obtained!")
-                except:
-                    print("[WARNING] Simple movie name for URL failed!")
-            # ..........................................................................................
-            # Movie name with release year
-            if soup is None:
-                try:
-                    movie_url = f"https://www.rottentomatoes.com/m/{movie_name}_{row['year']}"
-                    print(f"[INFO] Trying movie name with added release year... {movie_url}")
-                    soup = self.get_soup(request_url=movie_url)
-                    print("[INFO] Using movie name and release year successful - soup obtained!")
-                except:
-                    print("[WARNING] Movie name with added release year failed!")
-            # ..........................................................................................
-            # Movie name without "the" at the beginning
-            if (soup is None) and (movie_name.startswith("the")):
-                try:
-                    movie_name2 = movie_name[4:].strip() # Start at index 4 because to avoid '_' at the start
-                    movie_url = f"https://www.rottentomatoes.com/m/{movie_name2}"
-                    print(f"[INFO] Trying movie name without 'the' at the beginning... {movie_url}")
-                    soup = self.get_soup(request_url=movie_url)
-                    print("[INFO] Using movie name without 'the' successful - soup obtained!")
-                except:
-                    print("[WARNING] Movie name without 'the' failed!")
-            # ..........................................................................................
-            # Movie name without "the" at the beginning AND with added release year
-            if (soup is None) and (movie_name.startswith("the")):
-                try:
-                    movie_name2 = movie_name[4:].strip() # Start at index 4 because to avoid '_' at the start
-                    movie_url = f"https://www.rottentomatoes.com/m/{movie_name2}_{row['year']}"
-                    print(f"[INFO] Trying movie name without 'the' and with added release year... {movie_url}")
-                    soup = self.get_soup(request_url=movie_url)
-                    print("[INFO] Using movie name without 'the' successful - soup obtained!")
-                except:
-                    print("[WARNING] Movie name without 'the' and with added release year failed!")
-            # ..........................................................................................
-            if soup is None:
-                print("[WARNING] Failed to parse any soup! Skipping movie...")
+            try:
+                soup = self.get_soup(request_url=movie_url)
+                print("[INFO] Using simple movie name successful - soup obtained!")
+            except:
+                print("[WARNING] Failed to get soup! Skipping movie...")
                 continue
 
             # ==========================================================================================
-            # Get movie metadata
+            # GET MOVIE METADATA
             print("[INFO] Parsing movie metadata from soup...")
-            # Some movies, e.g. Prometheus, use the year in the URL of rotten tomatoes:
-            # https://www.rottentomatoes.com/m/prometheus_2012
-            # Try without year first:
+
             movie_metadata = get_movie_metadata(soup)
             print("............................................................")
             print("[INFO] Metadata parsed successfully!")
 
-            # Should URL without year return None on critical values
-            # try again with year in the URL
+            # Validate returned metadata
             if not qa_movie_metadata(movie_metadata):
-                try:
-                    print("[WARNING] Movie metadata missing vital values. Trying again with release year in URL...")
-                    soup = self.get_soup(request_url=f"{movie_url}_{row['year']}")
-        
-                    movie_metadata = get_movie_metadata(soup)
-                    print("[INFO] New request using release year succesful! Performing QA...")
-                except:
-                    print("[WARNING] New request using release year in URL failed!")
-
-            # Skip further processing if dictionary still does not fit requirements
-            if not qa_movie_metadata(movie_metadata):
-                print("[WARNING] Movie metadata is still missing vital values! Skipping movie entirely!")
+                print("[WARNING] Movie metadata is missing vital values! Skipping movie...")
                 continue
             else:
-                print("[INFO] Final QA of movie data successful!")
+                print("[INFO] QA of movie data successful!")
 
             # -----------------------------------------------------------------
             # Add movie title, year and letterboxd uri to metadata dictionary
@@ -642,6 +555,7 @@ class rottentomatoes(scraper):
             # Convert movie metadata to pandas DF and write to database
             print("[INFO] Writing to database...")
             df_out = pd.DataFrame([movie_metadata])
+            print(f"[INFO] Writing dataframe of shape {df_out.shape} to database...")
             # Write DF to DB
             pg.write_df_to_postgres(
                 df=df_out,

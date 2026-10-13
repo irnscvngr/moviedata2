@@ -5,9 +5,13 @@ import time
 import pytest
 import io
 import os
+from unittest.mock import patch
 import pandas as pd
 from bs4 import BeautifulSoup
 from moviedata.sources.rottentomatoes import rottentomatoes
+
+# Get test reference data
+DF_SCRAPE = pd.read_csv("tests/files/rottentomatoes_test-movies.csv")
 
 def test_rottentomatoes_parse_rt_search_results():
     """
@@ -24,15 +28,12 @@ def test_rottentomatoes_parse_rt_search_results():
     print("\n------------------------------------------------------------")
     print("[INFO] Testing Rottentomatoes 'parse_rt_search_results'")
 
-    # Get test reference data
-    df_scrape = pd.read_csv("tests/files/rottentomatoes_test-movies.csv")
-
     # Initialize success count
     success_cnt = 0.0
 
     # Use predefined movies, years and resulting URLs to test function
     rt = rottentomatoes()
-    for _, row in df_scrape.iterrows():
+    for _, row in DF_SCRAPE.iterrows():
         name = row['name']
         year_search = row['year_search']
         ref_url = row['ref_url']
@@ -48,9 +49,21 @@ def test_rottentomatoes_parse_rt_search_results():
 
     # Check if success rate is okay.
     # It makes no sense to use a 1:1 comparison, because some movies just fail to return on search in RT
-    assert success_cnt/df_scrape.shape[0] > 0.8
+    assert success_cnt/DF_SCRAPE.shape[0] > 0.8
 
-def test_rottentomatoes_get_movie_data():
+@patch("moviedata.core.database.pg_connect.write_df_to_postgres")
+def test_rottentomatoes_get_movie_data(mock_df):
     """
-    
+    Test if get_movie_data succeeds to actually retrieve movie data
+    from rottentomatoes based on a test-list of movies.
     """
+    rt = rottentomatoes()
+    rt.get_movie_data(
+        df_scrape=DF_SCRAPE.rename(columns={'year_search':'year'})
+        )
+
+    # Check if method made it at least once to the point of writing to database
+    assert mock_df.called
+    # Compare number of mock up calls to number of test-movies.
+    # Should ideally be 1:1 but using threshold because some movies just fail
+    assert 1.0*len(mock_df.call_args_list)/DF_SCRAPE.shape[0] >= 0.75
