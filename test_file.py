@@ -1,8 +1,7 @@
 import re
 import pandas as pd
-from moviedata.sources.rottentomatoes import rottentomatoes
-from moviedata.core.tools import parse_name_for_url
-import tests.test_rottentomatoes as test_rt
+from moviedata.sources.tmdb import tmdb
+from moviedata.services.updates import updater
 from datetime import datetime
 import bs4
 from bs4 import BeautifulSoup

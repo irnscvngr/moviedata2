@@ -8,9 +8,17 @@ from moviedata.services.updates import updater
 db_update = updater()
 
 # ==========================================================================================
+def update_letterboxd():
+    """
+    Updates letterboxd data
+    and also related TMDB data
+    """
+    db_update.update_letterboxd()
+    db_update.update_tmdb_data_from_letterboxd()
+
 st.button(
     label="Update Letterboxd Data",
-    on_click=db_update.update_letterboxd)
+    on_click=update_letterboxd)
 
 st.button(
     label="Update Rottentomatoes Data",

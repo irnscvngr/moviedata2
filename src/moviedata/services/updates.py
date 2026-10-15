@@ -402,12 +402,13 @@ class updater:
         print("[INFO] Successfully wrote movie release dates information to database!")
         
 
-    def update_tmdb_data(self, df_movies:pd.DataFrame, language='en-US'):
+    def update_tmdb_data(self, df_movies:pd.DataFrame):
         """
         Updates tmdb__movie_details and tmdb__movie_release_dates table.
+        Retrieves German title and otherwise english data
+
         Inputs:
         - df_movies     dataframe containing a 'title' and 'year' column of movies
-        - language      language of incoming movie titles, e.g. 'de-DE' or 'en-US'
         Returns:
         No data return - writes data to postgres
         """
@@ -426,14 +427,14 @@ class updater:
             # GET DATA - DETAILS
             print("[INFO] Receiving details information from TMDB API...")
 
-            # First try with movie title in selected language (e.g. de-DE)
+            # Get movie ID and German title
             res = tm.get_movie_data(
                 movie_title=movie_title,
                 release_year=release_year,
-                language=language,
+                language='de-DE',
                 category="details")
 
-            # Sometimes recent movies are passed with a release year that is 'one year ago'
+            # Sometimes very recent movies are passed with a release year that is 'one year ago'
             # due to e.g. US release being earlier than Germany
             # This leads to fail on search with TMDB -> Try again with current year can work!
             current_year = datetime.now().year
@@ -442,25 +443,27 @@ class updater:
                 res = tm.get_movie_data(
                     movie_title=movie_title,
                     release_year=current_year,
-                    language=language,
-                    category="details")
-
-            # Try again for English movie title
-            if res is None:
-                print("[WARNING] Could not get results on first try! Trying again for 'en-US' as language...")
-                res = tm.get_movie_data(
-                    movie_title=movie_title,
-                    release_year=release_year,
-                    language="en-US",
+                    language='de-DE',
                     category="details")
             
             if res is None:
                 print("[WARNING] Failed to obtain movie details! Skipping movie...")
                 continue
 
-            # Extract movie_id
+            # Store german title and TMDB ID
+            title_german = res['title']
             movie_id = res['id']
-            print(f"[INFO] Found movie on TMDB! Title: '{res['title']}'")
+    
+            # Use movie ID to get remaining data in english
+            res = tm.get_movie_data(
+                movie_id = movie_id,
+                language='en-US',
+                category="details")
+            if res is None:
+                print("[WARNING] Failed to obtain movie details! Skipping movie...")
+                continue
+
+            print(f"[INFO] Found movie on TMDB! English title: '{res['title']}' / German title: {title_german}")
 
             # .................................................................
             # CONVERT RESPONSE TO DATAFRAME
@@ -468,9 +471,8 @@ class updater:
             # Make dataframe from filtered API-response and adjust to write to database
             df_res = tm.movie_data_to_dataframe(res)
 
-            # Add german title as well
-            if language=='de-DE':
-                df_res['title_german'] = row['title']
+            # Add german title
+            df_res['title_german'] = title_german
 
             # .................................................................
             # WRITE TO DATABASE
@@ -585,11 +587,39 @@ class updater:
 
         # Get data of missing movies from TMDB and write to database
         self.update_tmdb_data(
-            df_movies=df_movies,
-            language='de-DE'
+            df_movies=df_movies
         )
 
-        print("[INFO] Choices update - get TMDB data - pipeline finished!\n")
+        print("[INFO] TMDB update based on Choices data - pipeline finished!\n")
         
 
+    def update_tmdb_data_from_letterboxd(self):
+        """
+        Get TMDB data for all letterboxd movies.
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        print("\n=======================================================================")
+        print(f"[INFO] {timestamp} TMDB update based on letterboxd data - pipeline started!")
+
+        # Get currently missing movies
+        df_movies = self.pg_con.sql_query(
+            """
+            SELECT
+                name AS title,
+                year
+            FROM "1_bronze"."ltboxd__watched_and_watchlist"
+            EXCEPT
+            SELECT
+                title_tmdb AS title,
+                EXTRACT(year from release_date) AS year
+            FROM "1_bronze"."tmdb__movie_details"
+            """
+        )
+
+        # Get data of missing movies from TMDB and write to database
+        self.update_tmdb_data(
+            df_movies=df_movies
+        )
+
+        print("[INFO] TMDB update based on Letterboxd data - pipeline finished!\n")
             
