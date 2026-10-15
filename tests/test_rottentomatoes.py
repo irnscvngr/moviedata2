@@ -67,3 +67,28 @@ def test_rottentomatoes_get_movie_data(mock_df):
     # Compare number of mock up calls to number of test-movies.
     # Should ideally be 1:1 but using threshold because some movies just fail
     assert 1.0*len(mock_df.call_args_list)/DF_SCRAPE.shape[0] >= 0.75
+
+    # Extract actual dataframes that would have been written to postgres
+    # to find out which movies failed exactly
+    df_values = [c.kwargs['df'] for c in mock_df.call_args_list]
+    df_combined = pd.concat(df_values, ignore_index=True)
+
+    # Join reference names and return names from RT
+    df_compare = (
+        DF_SCRAPE['name']
+        .rename('name_ref')
+        .to_frame()
+        .merge(
+            df_combined['name']
+            .rename('name_search')
+            .to_frame(),
+            how='left',
+            left_on='name_ref',
+            right_on='name_search'
+        )
+    )
+
+    # Extract list of failed movies
+    failed_movies = df_compare.loc[df_compare['name_search'].isna(), 'name_ref'].to_list()
+
+    print(f"These movies failed on RT-search: {failed_movies}")

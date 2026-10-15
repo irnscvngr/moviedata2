@@ -8,7 +8,4 @@ import bs4
 from bs4 import BeautifulSoup
 
 
-# rt = rottentomatoes()
-# rt.get_movie_data()
-
 test_rt.test_rottentomatoes_get_movie_data()
