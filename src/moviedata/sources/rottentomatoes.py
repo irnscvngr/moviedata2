@@ -39,6 +39,7 @@ class rottentomatoes(scraper):
         Returns:
         - res_url   URL to rottentomatoes page of movie
         """
+        year = int(year)
         print(f"\n[INFO] Performing RT search! | {name} ({year})")
 
         # ============================================================
@@ -136,23 +137,46 @@ class rottentomatoes(scraper):
                 print("[INFO] 🟢 Found search result within one year range!")
                 return df_search_res.loc[0,'url']
 
+            # ...............................................................................................
             # Parse names for comparison (in cases like Alien³)
+            
+            # Init parsed names
+            name_parsed = name.lower()
+            name_rt_parsed = df_search_res.loc[0,'name'].lower()
+
+            # Check if ampersand and literal "and" appear in both names.
+            # If yes - remove it completely to avoid umambiguity
+            if ("&" in f"{name_parsed} {name_rt_parsed}") and ("and" in f"{name_parsed} {name_rt_parsed}"):
+                name_parsed = name_parsed.replace("&","")
+                name_parsed = name_parsed.replace("and","")
+                name_rt_parsed = name_rt_parsed.replace("&","")
+                name_rt_parsed = name_rt_parsed.replace("and","")
+
+            # Do the same for percent
+            if ("%" in f"{name_parsed} {name_rt_parsed}") and ("percent" in f"{name_parsed} {name_rt_parsed}"):
+                name_parsed = name_parsed.replace("%","")
+                name_parsed = name_parsed.replace("percent","")
+                name_rt_parsed = name_rt_parsed.replace("%","")
+                name_rt_parsed = name_rt_parsed.replace("percent","")
+
+            # ...............................................................................................
+            # Use dedicated function to do the remaining parsing
             name_parsed = parse_name_for_url(
-                name,
+                name_parsed,
                 regular_url_parse=False,
                 force_ascii_characters=True,
                 remove_all_symbols=True,
                 remove_whitespace=True
                 )
             name_rt_parsed = parse_name_for_url(
-                df_search_res.loc[0,'name'],
+                name_rt_parsed,
                 regular_url_parse=False,
                 force_ascii_characters=True,
                 remove_all_symbols=True,
                 remove_whitespace=True
                 )
 
-            print(f"[WARNING] Failed to find candidate with given names. Adjusting names to (search) '{name_parsed}' and (result) '{name_rt_parsed}'")
+            print(f"[WARNING] Failed to find candidate with given names. Now comparing adjusted names: '{name_parsed}' (search) and '{name_rt_parsed}' (RT-return)")
     
             if (name_parsed == name_rt_parsed) and (df_search_res.loc[0,'year_dif'] == 0.0):
                 print("[INFO] 🟢 Found conclusive search result with parsed names!")
@@ -244,6 +268,9 @@ class rottentomatoes(scraper):
         - df_scrape | necessary columns: name, year
 
         """
+        # Set year of DF as integer (sometimes is float)
+        df_scrape['year'] = df_scrape['year'].astype(int)
+
         # Ensure index of DF starts at 0 and movie name is available
         s0 = df_scrape.shape[0]
         df_scrape = (
@@ -266,7 +293,32 @@ class rottentomatoes(scraper):
             movie_metadata = {}
 
             # ==============================================================================================================
-            # Get media score card that holds most of the information
+            # Get mediaHero (=JSON) to get basic movie-metadata (e.g. release-year)
+            try:
+                rt_film_data = (
+                    json.loads(
+                        soup
+                        .find("script", attrs={"data-json":"rateAndReviewModule"})
+                        .text
+                    )
+                )
+            except:
+                print("[WARNING] No release date information found in HTML! Returning None")
+                return None
+
+            try:
+                # Extracts release_date in the original shape (e.g. "Dec 19, 1997")
+                release_date = rt_film_data['releaseDate']
+                # Converts to standard format (e.g. 19-12-1997)
+                release_date = pd.to_datetime(release_date).strftime("%d-%m-%Y")
+                # Store release date in result dict
+                movie_metadata['release_date'] = release_date
+            except Exception:
+                print("[WARNING] Failed to parse release_date. Returning None.")
+                return None
+
+            # ==============================================================================================================
+            # Get media score card (=JSON) that holds most of the critics-related information
             print("[INFO] Get media score card from soup...")
             rt_film_data = (
                 json.loads(
@@ -493,7 +545,8 @@ class rottentomatoes(scraper):
             is_ok = True
 
             if ((movie_metadata['critics_score'] is None) or
-                (movie_metadata['audience_score'] is None)):
+                (movie_metadata['audience_score'] is None) or
+                (movie_metadata['release_date'] is None)):
                 is_ok = False
 
             return is_ok
@@ -527,6 +580,11 @@ class rottentomatoes(scraper):
             print("[INFO] Parsing movie metadata from soup...")
 
             movie_metadata = get_movie_metadata(soup)
+
+            if movie_metadata is None:
+                print("[WARNING] Failed to obtain movie metadata! Skipping movie...")
+                continue
+
             print("............................................................")
             print("[INFO] Metadata parsed successfully!")
 
@@ -541,7 +599,7 @@ class rottentomatoes(scraper):
             # Add movie title, year and letterboxd uri to metadata dictionary
             print("[INFO] Metadata parsed successfully! Adding base info to dictionary...")
             movie_metadata['name'] = row['name']
-            movie_metadata['year'] = row['year']
+            movie_metadata['year_query'] = row['year']
             if 'letterboxd_uri' in row.index:
                 movie_metadata['letterboxd_uri'] = row['letterboxd_uri']
             else:
@@ -561,7 +619,7 @@ class rottentomatoes(scraper):
                 df=df_out,
                 table_name="rotten__all_movies_metadata",
                 schema_name="1_bronze",
-                add_timestamp=False
+                add_timestamp=True
             )
 
             print("[INFO] Movie processing completed successfully!\n")

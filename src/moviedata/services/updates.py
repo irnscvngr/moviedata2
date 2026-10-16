@@ -108,6 +108,35 @@ class updater:
         print("[INFO] Rottentomatoes update pipeline finished!\n")
 
 
+    def update_rottentomatoes_from_tmdb(self):
+        """
+        """
+        print("\n==================================================")
+        print("[INFO] Rottentomatoes update pipeline started!")
+
+        # Get currently missing movies
+        df_movies = self.pg_con.sql_query(
+            """
+            -- Get all movies from TMDB
+            SELECT title_tmdb AS name, EXTRACT(year FROM release_date) AS year
+            FROM "1_bronze".tmdb__movie_details
+            EXCEPT
+            -- Remove all movies already in rottentomatoes table based on RT-release date
+            SELECT name, EXTRACT(year FROM release_date) AS year
+            FROM "1_bronze".rotten__all_movies_metadata
+            EXCEPT
+            -- Remove all movies already in rottentomatoes table based on query-year
+            SELECT name, year_query AS year
+            FROM "1_bronze".rotten__all_movies_metadata
+            """
+        )
+
+        rt = rottentomatoes()
+        rt.get_movie_data(df_scrape=df_movies)
+
+        print("[INFO] Rottentomatoes update from TMDB pipeline finished!\n")
+
+
     def update_medimops(self):
         """
         """

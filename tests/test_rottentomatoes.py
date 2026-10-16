@@ -62,26 +62,28 @@ def test_rottentomatoes_get_movie_data(mock_df):
         df_scrape=DF_SCRAPE.rename(columns={'year_search':'year'})
         )
 
+    # ..........................................................................................
     # Check if method made it at least once to the point of writing to database
     assert mock_df.called
+
+    # ..........................................................................................
     # Compare number of mock up calls to number of test-movies.
     # Should ideally be 1:1 but using threshold because some movies just fail
     assert 1.0*len(mock_df.call_args_list)/DF_SCRAPE.shape[0] >= 0.75
 
+    # ..........................................................................................
     # Extract actual dataframes that would have been written to postgres
     # to find out which movies failed exactly
     df_values = [c.kwargs['df'] for c in mock_df.call_args_list]
     df_combined = pd.concat(df_values, ignore_index=True)
 
-    # Join reference names and return names from RT
+    # Join reference values and return values from RT
     df_compare = (
-        DF_SCRAPE['name']
-        .rename('name_ref')
-        .to_frame()
+        DF_SCRAPE[['name','year_search']]
+        .rename(columns={'name':'name_ref'})
         .merge(
-            df_combined['name']
-            .rename('name_search')
-            .to_frame(),
+            df_combined[['name','release_date']]
+            .rename(columns={'name':'name_search'})
             how='left',
             left_on='name_ref',
             right_on='name_search'
@@ -92,3 +94,12 @@ def test_rottentomatoes_get_movie_data(mock_df):
     failed_movies = df_compare.loc[df_compare['name_search'].isna(), 'name_ref'].to_list()
 
     print(f"These movies failed on RT-search: {failed_movies}")
+
+    # ..........................................................................................
+    # Make sure that movies that were found actually have the same name as the query
+    df_compare_filtered = df_compare.dropna()
+
+    assert min(df_compare_filtered['name_ref'] == df_compare_filtered['name_search']) == True
+
+    # Also make sure that the release_dates are all actual values
+    assert min(df_compare_filtered['release_date'].isna()) == False

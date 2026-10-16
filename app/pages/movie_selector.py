@@ -89,15 +89,21 @@ with col2:
 # Get coverage of rottentomatoes data for watchlist
 df = pg.sql_query(
     """
-    SELECT 
-    -- Count matched items divided by total items in watchlist
-    COUNT(*)::NUMERIC / NULLIF((SELECT COUNT(*) FROM "1_bronze"."ltboxd__watchlist"), 0) AS coverage_ratio,
-    
-    -- Absolute numbers for context
-    COUNT(*) AS matched_movies,
-    (SELECT COUNT(*) FROM "1_bronze"."ltboxd__watchlist") AS total_watchlist_movies
-    FROM "1_bronze"."rotten__all_movies_metadata"
-    WHERE letterboxd_uri IN (SELECT letterboxd_uri FROM "1_bronze"."ltboxd__watchlist");
+    -- Create CTE that returns all movies from ltboxd__watchlist after subtracting all matches
+    -- from rottentomatoes
+    WITH cte
+    AS (
+        SELECT name, year
+        FROM "1_bronze"."ltboxd__watchlist"
+        EXCEPT
+        SELECT name, year_query AS year
+        FROM "1_bronze"."rotten__all_movies_metadata"
+    )
+    SELECT
+        -- Take number of remaining movies, divide it by length of ltboxd__watchlist and subtract
+        -- the result from 1 to get the percentage of movies, that are covered by the rottentomatoes list
+        1 - COUNT(*)::NUMERIC / NULLIF((SELECT COUNT(*) FROM "1_bronze"."ltboxd__watchlist"), 0) AS coverage_ratio
+    FROM cte
     """
 ).to_dict('records')[0]
 

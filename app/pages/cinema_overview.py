@@ -55,7 +55,8 @@ df_screenings = (
                 -- Get additional information from TMDB details
                 b.runtime,
                 b.poster_path,
-                b.tmdb_id
+                b.tmdb_id,
+                b.title_tmdb
             FROM cte_basic_infos
             LEFT JOIN "1_bronze"."tmdb__movie_details" b
             ON cte_basic_infos.title = b.title_german
@@ -70,8 +71,8 @@ df_screenings = (
                 b.consensus
             FROM cte_detailed_infos
             LEFT JOIN "1_bronze"."rotten__all_movies_metadata" b
-            ON cte_detailed_infos.title = b.name
-            AND cte_detailed_infos.year = b.year
+            ON cte_detailed_infos.title_tmdb = b.name
+            AND cte_detailed_infos.year = b.year_query
         )
         -- Add age certification from TMDB release dates
         SELECT
