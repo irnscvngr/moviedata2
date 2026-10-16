@@ -459,8 +459,9 @@ class updater:
             print("\n--------------------------------------------------")
             print(f"[INFO] ({i+1}/{df_movies.shape[0]}) Processing '{movie_title} ({release_year})'")
 
-            # .................................................................
+            # =================================================================================
             # GET DATA - DETAILS
+            # =================================================================================
             print("[INFO] Receiving details information from TMDB API...")
 
             # Get movie ID and German title
@@ -520,8 +521,9 @@ class updater:
             )
             print("[INFO] Successfully wrote movie details information to database!")
 
-            # .................................................................
+            # =================================================================================
             # GET DATA - RELEASE DATES
+            # =================================================================================
             print("[INFO] Receiving release dates information from TMDB API...")
             res = tm.get_movie_data(
                 movie_id=movie_id,
@@ -627,8 +629,8 @@ class updater:
         )
 
         print("[INFO] TMDB update based on Choices data - pipeline finished!\n")
-        
 
+        
     def update_tmdb_data_from_letterboxd(self):
         """
         Get TMDB data for all letterboxd movies.
@@ -658,4 +660,54 @@ class updater:
         )
 
         print("[INFO] TMDB update based on Letterboxd data - pipeline finished!\n")
+
+
+    def update_tmdb_streaming_providers(self):
+        """
+        Take tmdb__movie_details list and update tmdb__streaming_providers table.
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        print("\n=======================================================================")
+        print(f"[INFO] {timestamp} TMDB update streaming providers - pipeline started!")
+
+        # .................................................................
+        # Get DF from database
+        df_movies = self.pg_con.sql_query("""
+            SELECT tmdb_id
+            FROM "1_bronze"."tmdb__movie_details"
+            """
+        )
+
+        if not isinstance(df_movies, pd.DataFrame):
+            df_movies = df_movies.to_frame()
+
+        # Init tmdb class
+        tm = tmdb()
+
+        # .................................................................
+        # Get streaming providers information
+        for i, row in df_movies.iterrows():
+            movie_id = row['tmdb_id']
+            print(f"[INFO] [{i+1}/{df_movies.shape[0]}] Processing movie-id: {movie_id}")
+
+            df_res = tm.get_streaming_providers(movie_id=movie_id)
             
+            if df_res is None:
+                print("[WARNING] Result set was empty! Skipping movie...")
+                continue
+
+            print(f"[INFO] Received: {df_res.shape[0]} results!")
+
+            # .................................................................
+            # WRITE TO DATABASE
+            self.pg_con.write_df_to_postgres(
+                df=df_res,
+                schema_name="1_bronze",
+                table_name="tmdb__streaming_providers",
+                add_timestamp=True
+            )
+
+            # Consider API pauses
+            time.sleep(0.05)
+
+        print("[INFO] TMDB update streaming providers - pipeline finished!\n")

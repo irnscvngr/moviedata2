@@ -203,3 +203,54 @@ class tmdb(scraper):
         )
 
         return df_res
+
+    def get_streaming_providers(self, movie_id:int) -> pd.DataFrame:
+        """
+        Calls TMDB-API with a movie-id to receive a list of streaming
+        providers that currently show the movie.
+
+        Returns a pandas dataframe with the parsed results
+        """
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}/watch/providers"
+        headers = {"accept": "application/json"}
+        params = {"api_key": self.TMDB_API_KEY}
+
+        print(f"[INFO] Calling TMDB API for movie id {movie_id}...\nurl: {url}")
+        response = requests.get(
+            url,
+            headers=headers,
+            params=params
+            )
+
+        # .....................................................................................
+        # Extract results for Germany
+        try:
+            res_germany = response.json()['results']['DE']
+        except:
+            print(f"[WARNING] Failed to retrieve provider information. Returning None...")
+            return None
+
+        # List of potential keys
+        dkeys = ['free','flatrate','rent','buy']
+
+        # .....................................................................................
+        # Flatten values
+        def get_values(key):
+            try:
+                res = []
+                for sub_dict in res_germany[key]:
+                    tmp_dict = {'type':key}
+                    tmp_dict.update(sub_dict)
+                    res.append(tmp_dict)
+                return res
+            except:
+                pass
+        values_flat = [v for c in dkeys for v in (get_values(c) or [])]
+
+        # .....................................................................................
+        # Convert results to dataframe and return
+        df_res = pd.DataFrame(values_flat)
+        df_res['movie_id'] = movie_id
+
+        return df_res
+    

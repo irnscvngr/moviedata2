@@ -15,6 +15,7 @@ def update_letterboxd():
     """
     db_update.update_letterboxd()
     db_update.update_tmdb_data_from_letterboxd()
+    db_update.update_tmdb_streaming_providers()
 
 st.button(
     label="Update Letterboxd Data",
