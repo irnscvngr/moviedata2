@@ -44,7 +44,7 @@ class rottentomatoes(scraper):
 
         # ============================================================
         # Helper function to query RT for search by URL
-        def get_rt_search_results(search_url_parsed):
+        def get_rt_search_results(search_url_parsed:str):
             """
             Function to call RT with a parsed URL and return list of dictionaries with search results.
             """
@@ -54,31 +54,30 @@ class rottentomatoes(scraper):
             # Store search result HTML to disk
             # with open(f"rotten_searchresults_soup {name} {year}.html", "w", encoding="utf-8") as file:
             #     file.write(soup.prettify())
-    
-            search_res = soup.find_all(attrs={"data-qa":"search-result"})
+
+            search_res = soup.find_all("search-page-media-row")
             print(f"[INFO] Search returned {len(search_res)} results!")
     
             # Initialize list to store search results
             search_res_parsed = []
     
             # Go through all search results
-            for el in search_res:
-                # Extract data row from search result
-                data_row = el.find(attrs={'data-qa':'data-row'})
-    
+            for el in search_res:  
                 # Get release year
-                year_rt = data_row.get('release-year')
+                year_rt = el.get('release-year')
                 if year_rt is not None:
                     year_rt = year_rt.strip()
     
                 # Get name and URL
-                el_info = data_row.find(attrs={'data-qa':'info-name'})
+                el_info = el.find(attrs={'data-qa':'info-name',"slot":"title"})
                 name_rt = el_info.text
                 url_rt = el_info.get('href')
                 if name_rt is not None:
                     name_rt = name_rt.strip()
                 if url_rt is not None:
                     url_rt = url_rt.strip()
+
+                print(f"[INFO] Search result movie name: {name_rt} ({year_rt})")
 
                 # Store results
                 res = {

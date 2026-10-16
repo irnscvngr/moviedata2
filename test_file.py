@@ -12,8 +12,11 @@ from bs4 import BeautifulSoup
 
 # DF_SCRAPE.rename(columns={'year_search':'year'}, inplace=True)
 
-# rt = rottentomatoes()
+rt = rottentomatoes()
 # rt.get_movie_data(df_scrape=DF_SCRAPE)
 
-ud = updater()
-ud.update_rottentomatoes_from_tmdb()
+res = rt .parse_rt_search_results(name='Casino', year='1995')
+print(res)
+
+# ud = updater()
+# ud.update_rottentomatoes_from_tmdb()
