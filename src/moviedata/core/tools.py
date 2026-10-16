@@ -70,7 +70,8 @@ def parse_name_for_url(
         remove_whitespace=False,
         replace_ampersand=False,
         replace_percent=False,
-        remove_all_symbols=False):
+        remove_all_symbols=False,
+        remove_numbers=False):
     """
     Receives a "regular" input string (natural spelling).
     Then transforms it for usage in URLs.
@@ -103,6 +104,8 @@ def parse_name_for_url(
         parsed_string = re.sub(r'_{2,}', '_', parsed_string)
     if remove_whitespace:
         parsed_string = parsed_string.replace(" ","")
+    if remove_numbers:
+        parsed_string = re.sub(r'\d+', '', parsed_string)
     if regular_url_parse:
         # Perform regular URL-parsing, e.g. whitespace to %20
         parsed_string = urllib.parse.quote(parsed_string, safe=":/=?&")

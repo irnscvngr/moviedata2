@@ -120,13 +120,20 @@ class updater:
             -- Get all movies from TMDB
             SELECT title_tmdb AS name, EXTRACT(year FROM release_date) AS year
             FROM "1_bronze".tmdb__movie_details
-            EXCEPT
+            
             -- Remove all movies already in rottentomatoes table based on RT-release date
+            EXCEPT
             SELECT name, EXTRACT(year FROM release_date) AS year
             FROM "1_bronze".rotten__all_movies_metadata
-            EXCEPT
+            
             -- Remove all movies already in rottentomatoes table based on query-year
+            EXCEPT
             SELECT name, year_query AS year
+            FROM "1_bronze".rotten__all_movies_metadata
+            
+            -- Remove all movies already in rottentomatoes table based on rt-search-year
+            EXCEPT
+            SELECT name, year_rt_search AS year
             FROM "1_bronze".rotten__all_movies_metadata
             """
         )

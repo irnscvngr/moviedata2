@@ -47,6 +47,8 @@ class rottentomatoes(scraper):
         def get_rt_search_results(search_url_parsed:str):
             """
             Function to call RT with a parsed URL and return list of dictionaries with search results.
+
+            Returns dict for conlusive result, or list of dicts for inconclusive result.
             """
             # Perform search on RottenTomatoes
             soup = self.get_soup(request_url=search_url_parsed)
@@ -67,6 +69,8 @@ class rottentomatoes(scraper):
                 year_rt = el.get('release-year')
                 if year_rt is not None:
                     year_rt = year_rt.strip()
+                if year_rt == '':
+                    year_rt = None
     
                 # Get name and URL
                 el_info = el.find(attrs={'data-qa':'info-name',"slot":"title"})
@@ -97,7 +101,7 @@ class rottentomatoes(scraper):
 
         # ============================================================
         # Helper function to process the search results returned from RT
-        def examine_rt_search_results(search_res_parsed):
+        def examine_rt_search_results(search_res_parsed:list):
             """
             Go through list of search results and find best candidate.
             """
@@ -130,11 +134,11 @@ class rottentomatoes(scraper):
             """
             if (df_search_res.loc[0,'name'] == name) and (df_search_res.loc[0,'year_dif'] == 0.0):
                 print("[INFO] 🟢 Found conclusive search result!")
-                return df_search_res.loc[0,'url']
+                return df_search_res.loc[0,['name','year','url']].to_dict()
 
             if (df_search_res.loc[0,'name'] == name) and (df_search_res.loc[0,'year_dif'] <= 1.0):
                 print("[INFO] 🟢 Found search result within one year range!")
-                return df_search_res.loc[0,'url']
+                return df_search_res.loc[0,['name','year','url']].to_dict()
 
             # ...............................................................................................
             # Parse names for comparison (in cases like Alien³)
@@ -165,29 +169,31 @@ class rottentomatoes(scraper):
                 regular_url_parse=False,
                 force_ascii_characters=True,
                 remove_all_symbols=True,
-                remove_whitespace=True
+                remove_whitespace=True,
+                remove_numbers=True
                 )
             name_rt_parsed = parse_name_for_url(
                 name_rt_parsed,
                 regular_url_parse=False,
                 force_ascii_characters=True,
                 remove_all_symbols=True,
-                remove_whitespace=True
+                remove_whitespace=True,
+                remove_numbers=True
                 )
 
             print(f"[WARNING] Failed to find candidate with given names. Now comparing adjusted names: '{name_parsed}' (search) and '{name_rt_parsed}' (RT-return)")
     
             if (name_parsed == name_rt_parsed) and (df_search_res.loc[0,'year_dif'] == 0.0):
                 print("[INFO] 🟢 Found conclusive search result with parsed names!")
-                return df_search_res.loc[0,'url']
+                return df_search_res.loc[0,['name','year','url']].to_dict()
     
             if (name_parsed == name_rt_parsed) and (df_search_res.loc[0,'year_dif'] <= 1.0):
                 print("[INFO] 🟢 Found search result with parsed names and within one year range!")
-                return df_search_res.loc[0,'url']
+                return df_search_res.loc[0,['name','year','url']].to_dict()
 
             if (set(name_parsed)==set(name_rt_parsed)) and (abs(1 - 1.0*len(name_parsed)/len(name_rt_parsed))<0.2):
                 print("[INFO] 🟢 Found search result by name similarity and within one year range!")
-                return df_search_res.loc[0,'url']
+                return df_search_res.loc[0,['name','year','url']].to_dict()
 
             # If all fails, return None
             return None
@@ -206,7 +212,7 @@ class rottentomatoes(scraper):
         # Return URL directly
         if conclusive_flag:
             print("[INFO] 🟢 Found conclusive search result!")
-            return search_res_parsed['url']
+            return search_res_parsed
 
         # ...........................................................................
         # PROCESS INCONCLUSIVE SEARCH RESULTS
@@ -216,10 +222,10 @@ class rottentomatoes(scraper):
 
         _, df_search_res = examine_rt_search_results(search_res_parsed)
 
-        res_url = process_inconclusive_results(df_search_res)
+        search_res_processed = process_inconclusive_results(df_search_res)
 
-        if res_url is not None:
-            return res_url
+        if search_res_processed is not None:
+            return search_res_processed
 
         # ===========================================================================
         # PERFORM SEARCH WITH NAME AND YEAR
@@ -236,7 +242,7 @@ class rottentomatoes(scraper):
         # Return URL directly
         if conclusive_flag:
             print("[INFO] 🟢 Found conclusive search result!")
-            return search_res_parsed['url']
+            return search_res_parsed
 
         # ...........................................................................
         # PROCESS INCONCLUSIVE SEARCH RESULTS
@@ -246,10 +252,10 @@ class rottentomatoes(scraper):
 
         _, df_search_res = examine_rt_search_results(search_res_parsed)
 
-        res_url = process_inconclusive_results(df_search_res)
+        search_res_processed = process_inconclusive_results(df_search_res)
         
-        if res_url is not None:
-            return res_url
+        if search_res_processed is not None:
+            return search_res_processed
 
         # ===========================================================================
         # SEARCH FAILED
@@ -556,12 +562,14 @@ class rottentomatoes(scraper):
 
             # ==========================================================================================
             # GET MOVIE URL AND SOUP
-            movie_url = self.parse_rt_search_results(name=row['name'], year=row['year'])
+            search_res_parsed = self.parse_rt_search_results(name=row['name'], year=row['year'])
 
-            if movie_url is None:
-                print("[WARNING] Could not obtain movie URL. Skipping movie...")
+            if search_res_parsed is None:
+                print("[WARNING] Failed to parse RT search results! Skipping movie...")
                 continue
-        
+
+            movie_url = search_res_parsed['url']
+
             # Get soup of movie page
             print("[INFO] Performing GET request and parsing soup...")
             # Initialize soup as None and error count to zero
@@ -599,6 +607,7 @@ class rottentomatoes(scraper):
             print("[INFO] Metadata parsed successfully! Adding base info to dictionary...")
             movie_metadata['name'] = row['name']
             movie_metadata['year_query'] = row['year']
+            movie_metadata['year_rt_search'] = int(search_res_parsed['year'])
             if 'letterboxd_uri' in row.index:
                 movie_metadata['letterboxd_uri'] = row['letterboxd_uri']
             else:
