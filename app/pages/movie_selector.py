@@ -26,19 +26,48 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+col1, col2 = st.columns(2)
+
+with col2:
+    toggle_free_streaming = st.toggle("Free Streaming Only")
+
+# Define filter for streaming
+filter_streaming_types = ('free', '')
+
+if toggle_free_streaming:
+    # Select distinct genres that are available via free streaming
+    sql_query = f"""
+        SELECT 
+            DISTINCT b.genre
+        FROM "1_bronze"."tmdb__movie_streams_complete" a
+        LEFT JOIN "1_bronze".ltboxd__movie_genres b
+        ON a.title_tmdb = b.name
+        AND EXTRACT(year FROM a.release_date) = b.year
+        WHERE b.genre IS NOT NULL
+        AND a.streaming_type IN {filter_streaming_types}
+    """
+else:
+    # Select distinct genres for all movies
+    sql_query = """
+        SELECT DISTINCT genre
+        FROM "1_bronze"."ltboxd__movie_genres"
+    """
+
+
 # Get available genres
 genres = (
     pg
-    .sql_query("""SELECT DISTINCT genre FROM "1_bronze"."ltboxd__movie_genres" """)
+    .sql_query(sql_query)
     ['genre']
     .sort_values()
     .tolist()
 )
 
-# Genre-Filter toggle
-use_genre_filter = st.toggle("Filter Genres")
+with col1:
+    # Genre-Filter toggle
+    toggle_use_genre_filter = st.toggle("Filter Genres")
 
-if use_genre_filter:
+if toggle_use_genre_filter:
     genre_select = st.multiselect(
         "genre_select",
         genres,
@@ -107,49 +136,88 @@ df = pg.sql_query(
     """
 ).to_dict('records')[0]
 
-f"*Rotten tomatoes coverage of watchlist: {round(100*df['coverage_ratio'])}%*"
+f"*Rotten tomatoes coverage of full watchlist: {round(100*df['coverage_ratio'])}%*"
+
+# ==========================================================================================
+# GET MOVIES AND STREAM PROVIDERS BASED ON USER SELECTION
+
+# Dynamically build the SQL filter snippet based on the toggle switch
+free_stream_filter = f"""
+    AND (w.name, w.year) IN (
+        SELECT title_tmdb AS name, EXTRACT(year FROM release_date) AS year
+        FROM "1_bronze"."tmdb__movie_streams_complete"
+        WHERE streaming_type IN {filter_streaming_types}
+    )
+""" if toggle_free_streaming else ""
+
+# Dynamically build the streaming filter for the join if toggle is active
+join_stream_filter = f"""
+    AND b.streaming_type IN {filter_streaming_types}
+""" if toggle_free_streaming else ""
 
 # Convert selected genre-list to string for use in SQL
 formatted_genres = f"({', '.join(repr(g) for g in genre_select)})" if genre_select else "(NULL)"
 # Get movies filtered by user-parameters
-df = (
+df_stream_providers = (
     pg
     .sql_query(f"""
+    WITH
+    cte AS (
+        SELECT
+            w.name,
+            w.year,
+            w.duration,
+            (w.critics_score + w.audience_score)/2 AS meta_score,
+            w.poster,
+            w.description,
+            w.critics_score,
+            w.audience_score
+        FROM "3_gold"."watchlist_with_scores" w
+        WHERE w.critics_score >= {select_critics_score[0]}
+        AND w.critics_score <= {select_critics_score[1]}
+        -- audience score
+        AND w.audience_score >= {select_audience_score[0]}
+        AND w.audience_score <= {select_audience_score[1]}
+        -- duration
+        AND w.duration >= {select_duration[0]}
+        AND w.duration <= {select_duration[1]}
+        -- year
+        AND w.year >= {select_year[0]}
+        AND w.year <= {select_year[1]}
+        -- drop nulls
+        AND w.critics_score IS NOT NULL
+        AND w.audience_score IS NOT NULL
+        -- genre filter
+        AND EXISTS (
+            SELECT 1 
+            FROM "1_bronze"."ltboxd__movie_genres" g
+            WHERE g.letterboxd_uri = w.letterboxd_uri
+            AND g.genre->>0 IN {formatted_genres}
+        )
+        -- Toggle Filter for free streaming
+        {free_stream_filter}
+        --
+        LIMIT 50
+    )
     SELECT
-        w.name,
-        w.year,
-        w.duration,
-        (w.critics_score + w.audience_score)/2 AS meta_score,
-        w.poster,
-        w.description,
-        w.critics_score,
-        w.audience_score
-    FROM "3_gold"."watchlist_with_scores" w
-    WHERE w.critics_score >= {select_critics_score[0]}
-    AND w.critics_score <= {select_critics_score[1]}
-    -- audience score
-    AND w.audience_score >= {select_audience_score[0]}
-    AND w.audience_score <= {select_audience_score[1]}
-    -- duration
-    AND w.duration >= {select_duration[0]}
-    AND w.duration <= {select_duration[1]}
-    -- year
-    AND w.year >= {select_year[0]}
-    AND w.year <= {select_year[1]}
-    -- drop nulls
-    AND w.critics_score IS NOT NULL
-    AND w.audience_score IS NOT NULL
-    -- genre filter
-    AND EXISTS (
-        SELECT 1 
-        FROM "1_bronze"."ltboxd__movie_genres" g
-        WHERE g.letterboxd_uri = w.letterboxd_uri
-        AND g.genre->>0 IN {formatted_genres}
-    )
-    --
+        a.*,
+        b.streaming_type,
+        b.provider_name
+    FROM cte a
+    LEFT JOIN "1_bronze"."tmdb__movie_streams_complete" b
+    ON a.name = b.title_tmdb
+    AND a.year = EXTRACT(year FROM b.release_date)
+    {join_stream_filter}
     ORDER BY meta_score DESC
-    LIMIT 50"""
+    """
     )
+)
+
+# Dedup results to get distinct movies
+df = (
+    df_stream_providers
+    .copy()
+    .drop_duplicates(subset=['name','year'])
 )
 
 # Display images:
@@ -160,13 +228,26 @@ display_centered_images(
     hover_func=hover_image_movie_selector
     )
 
+# =============================================================================================
 # Display dataframe
+df_disp = (
+    df_stream_providers
+    .groupby(['name','year'], as_index=False)
+    .agg({
+        'name':'first',
+        'year':'first',
+        'duration':'first',
+        'meta_score':'first',
+        'provider_name':lambda x: set(x)
+        })
+)
+
 st.dataframe(
-    df.loc[:,['name','year','duration','meta_score']],
+    df_disp,
     column_config={
         "name":"Movie Name",
         "year":"Release Year",
         "duration":"Duration [min]",
         "meta_score":"Meta Score [%]"
     }
-    )
+)
