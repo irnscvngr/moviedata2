@@ -1,17 +1,12 @@
 # import re
 # import pandas as pd
-# from moviedata.sources.tmdb import tmdb
+from moviedata.sources.letterboxd import letterboxd
 # from moviedata.services.updates import updater
 # from datetime import datetime
 # import bs4
 # from bs4 import BeautifulSoup
 
 
-# ud = updater()
-# ud.update_tmdb_streaming_providers()
+lb = letterboxd(timeout=30)
 
-x = ('a', 'b')
-
-res = f"Test {x}"
-
-print(res)
+lb.get_userdata()

@@ -20,7 +20,7 @@ class letterboxd(scraper):
     """
     Class for letterboxd specific actions
     """
-    def __init__(self, timeout: int=10):
+    def __init__(self, timeout: int=30):
         super().__init__(domain="https://www.letterboxd.com", timeout=timeout)
         self.userdata = None
 
@@ -49,10 +49,11 @@ class letterboxd(scraper):
             page.fill("input[name='password']", settings.LETTERBOXD_PASSWORD)
 
             # Click the explicit submit button
+            print("[INFO] Submitting credentials...")
             page.click("button[type='submit']")
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(self.timeout*1000)
             
-            page.wait_for_url(lambda url: "sign-in" not in url, timeout=10000)
+            page.wait_for_url(lambda url: "sign-in" not in url, timeout=self.timeout*1000)
             print("[INFO] Logged in successfully!")
     
             # ----------------------------------------------------------------------
@@ -73,7 +74,7 @@ class letterboxd(scraper):
             # 4. Wait for the modal container to appear and click the inner confirmation button/link
             print("[INFO] Waiting for modal and clicking confirm download...")
             # Colorbox wraps popups inside #colorbox or #cboxLoadedContent
-            page.wait_for_selector("#colorbox", state="visible", timeout=10000)
+            page.wait_for_selector("#colorbox", state="visible", timeout=self.timeout*1000)
             
             # Capture the file download triggered by clicking the modal's download button
             with page.expect_download(timeout=20000) as download_info:
